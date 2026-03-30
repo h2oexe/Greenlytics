@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{5C8F9ED0-1BF4-44FB-AAD3-A3DC4A7E0284}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Greenlytics.Domain", "src\Greenlytics.Domain\Greenlytics.Domain.csproj", "{D8D0D890-D618-4253-82AD-FD2C7460B321}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Greenlytics.Application", "src\Greenlytics.Application\Greenlytics.Application.csproj", "{E31A218B-A9F9-4F42-BBE6-7FC56721F63F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Greenlytics.Infrastructure", "src\Greenlytics.Infrastructure\Greenlytics.Infrastructure.csproj", "{6974E7FD-5DD3-44D6-8E15-24E1807EAC1B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Greenlytics.API", "src\Greenlytics.API\Greenlytics.API.csproj", "{E1727B0F-C009-4F2A-A6A3-7E335D55F58F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3A78EC44-7590-42CE-9CBB-50366552F05B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Greenlytics.Tests", "tests\Greenlytics.Tests\Greenlytics.Tests.csproj", "{020A8A25-9FDF-4B3B-A50F-E0993D0F9129}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D8D0D890-D618-4253-82AD-FD2C7460B321}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D8D0D890-D618-4253-82AD-FD2C7460B321}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D8D0D890-D618-4253-82AD-FD2C7460B321}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D8D0D890-D618-4253-82AD-FD2C7460B321}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E31A218B-A9F9-4F42-BBE6-7FC56721F63F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E31A218B-A9F9-4F42-BBE6-7FC56721F63F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E31A218B-A9F9-4F42-BBE6-7FC56721F63F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E31A218B-A9F9-4F42-BBE6-7FC56721F63F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6974E7FD-5DD3-44D6-8E15-24E1807EAC1B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6974E7FD-5DD3-44D6-8E15-24E1807EAC1B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6974E7FD-5DD3-44D6-8E15-24E1807EAC1B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6974E7FD-5DD3-44D6-8E15-24E1807EAC1B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E1727B0F-C009-4F2A-A6A3-7E335D55F58F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E1727B0F-C009-4F2A-A6A3-7E335D55F58F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E1727B0F-C009-4F2A-A6A3-7E335D55F58F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E1727B0F-C009-4F2A-A6A3-7E335D55F58F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{020A8A25-9FDF-4B3B-A50F-E0993D0F9129}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{020A8A25-9FDF-4B3B-A50F-E0993D0F9129}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{020A8A25-9FDF-4B3B-A50F-E0993D0F9129}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{020A8A25-9FDF-4B3B-A50F-E0993D0F9129}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D8D0D890-D618-4253-82AD-FD2C7460B321} = {5C8F9ED0-1BF4-44FB-AAD3-A3DC4A7E0284}
+		{E31A218B-A9F9-4F42-BBE6-7FC56721F63F} = {5C8F9ED0-1BF4-44FB-AAD3-A3DC4A7E0284}
+		{6974E7FD-5DD3-44D6-8E15-24E1807EAC1B} = {5C8F9ED0-1BF4-44FB-AAD3-A3DC4A7E0284}
+		{E1727B0F-C009-4F2A-A6A3-7E335D55F58F} = {5C8F9ED0-1BF4-44FB-AAD3-A3DC4A7E0284}
+		{020A8A25-9FDF-4B3B-A50F-E0993D0F9129} = {3A78EC44-7590-42CE-9CBB-50366552F05B}
+	EndGlobalSection
+EndGlobal

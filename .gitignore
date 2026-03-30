@@ -1,0 +1,18 @@
+# Visual Studio / .NET
+[Oo]bj/
+[Bb]in/
+.vs/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+TestResults/
+*.log
+
+# Docker / Infrastructure
+postgres_data/
+redis_data/
+minio_data/
+
+# Mac
+.DS_Store
