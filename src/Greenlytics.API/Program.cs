@@ -1,10 +1,16 @@
 using System.Text;
 using FluentValidation;
 using Greenlytics.API.Middleware;
+using Greenlytics.Domain.Entities;
+using Greenlytics.Domain.Enums;
 using Greenlytics.Domain.Interfaces;
 using Greenlytics.Infrastructure;
+using Greenlytics.Infrastructure.Persistence;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -106,6 +112,84 @@ builder.Services.AddCors(opts => opts.AddPolicy("AllowAll", policy =>
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var connection = db.Database.GetDbConnection();
+    connection.Open();
+
+    using (var command = connection.CreateCommand())
+    {
+        command.CommandText = "SELECT COALESCE(to_regclass('public.\"Plans\"')::text, '')";
+        var plansTable = command.ExecuteScalar();
+
+        if (plansTable is null || plansTable == DBNull.Value || string.IsNullOrWhiteSpace(plansTable.ToString()))
+        {
+            var creator = db.Database.GetService<IRelationalDatabaseCreator>();
+            creator.CreateTables();
+        }
+    }
+
+    if (!db.Plans.Any())
+    {
+        db.Plans.AddRange(
+            new Plan
+            {
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                Name = PlanName.Basic,
+                DisplayName = "Basic",
+                MonthlyPrice = 0,
+                YearlyPrice = 0,
+                MaxRecordsPerMonth = 500,
+                MaxExportsPerMonth = 0,
+                CanExport = false,
+                CanUseApiKeys = false,
+                CanUseWebhooks = false,
+                CanAccessAdvancedReports = false,
+                CanSetGoals = false,
+                HasPrioritySupport = false,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Plan
+            {
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000002"),
+                Name = PlanName.Pro,
+                DisplayName = "Pro",
+                MonthlyPrice = 49,
+                YearlyPrice = 490,
+                MaxRecordsPerMonth = 10000,
+                MaxExportsPerMonth = 50,
+                CanExport = true,
+                CanUseApiKeys = false,
+                CanUseWebhooks = false,
+                CanAccessAdvancedReports = true,
+                CanSetGoals = true,
+                HasPrioritySupport = false,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Plan
+            {
+                Id = Guid.Parse("00000000-0000-0000-0000-000000000003"),
+                Name = PlanName.Enterprise,
+                DisplayName = "Enterprise",
+                MonthlyPrice = 199,
+                YearlyPrice = 1990,
+                MaxRecordsPerMonth = -1,
+                MaxExportsPerMonth = -1,
+                CanExport = true,
+                CanUseApiKeys = true,
+                CanUseWebhooks = true,
+                CanAccessAdvancedReports = true,
+                CanSetGoals = true,
+                HasPrioritySupport = true,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            }
+        );
+
+        db.SaveChanges();
+    }
+}
 
 // ── Middleware Pipeline ───────────────────────────────────────────────────
 app.UseMiddleware<ErrorHandlingMiddleware>();

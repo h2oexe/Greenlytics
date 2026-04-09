@@ -50,7 +50,26 @@ The application will start on `http://localhost:5000`.
 
 ## 🎨 Frontend Setup & Execution
 
-*(The frontend application will be placed in the `frontend/` directory. Instructions will be updated by the frontend team.)*
+The frontend starter now lives in the `frontend/` directory.
+
+### 1. Install dependencies
+```bash
+cd frontend
+npm install
+```
+
+### 2. Configure API base URL
+Create a `frontend/.env` file with:
+```bash
+VITE_API_BASE_URL=http://localhost:5000
+```
+
+### 3. Run the frontend
+```bash
+npm run dev
+```
+
+The Vite dev server starts on `http://localhost:5173`.
 
 ---
 

@@ -1,5 +1,6 @@
 using Greenlytics.Domain.Interfaces;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace Greenlytics.API.Middleware;
@@ -79,10 +80,32 @@ public class ErrorHandlingMiddleware
             context.Response.StatusCode = 403;
             await context.Response.WriteAsJsonAsync(new { error = ex.Message });
         }
+        catch (DbUpdateException ex)
+        {
+            context.Response.StatusCode = 409;
+            await context.Response.WriteAsJsonAsync(new { error = MapDatabaseError(ex) });
+        }
         catch (Exception ex)
         {
             context.Response.StatusCode = 500;
             await context.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred.", detail = ex.Message });
         }
+    }
+
+    private static string MapDatabaseError(DbUpdateException ex)
+    {
+        var message = ex.InnerException?.Message ?? ex.Message;
+
+        if (message.Contains("IX_Companies_Slug", StringComparison.OrdinalIgnoreCase))
+            return "Bu sirket adi zaten kullanimda. Lutfen farkli bir sirket adi deneyin.";
+
+        if (message.Contains("CompanyId, Email", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("Email already in use", StringComparison.OrdinalIgnoreCase))
+            return "Bu e-posta adresi zaten kullanimda.";
+
+        if (message.Contains("duplicate key value", StringComparison.OrdinalIgnoreCase))
+            return "Bu bilgilerle zaten bir kayit bulunuyor.";
+
+        return "Kayit sirasinda veri tabani tarafinda bir cakisma olustu.";
     }
 }

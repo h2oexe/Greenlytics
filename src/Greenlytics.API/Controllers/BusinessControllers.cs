@@ -72,9 +72,9 @@ public class ReportsController : ControllerBase
 {
     private readonly IAggregationService _aggregation;
     private readonly ICurrentUserService _user;
-    private readonly Application.Features.Goals.GoalService _goals;
+    private readonly IGoalService _goals;
 
-    public ReportsController(IAggregationService aggregation, ICurrentUserService user, Application.Features.Goals.GoalService goals)
+    public ReportsController(IAggregationService aggregation, ICurrentUserService user, IGoalService goals)
         => (_aggregation, _user, _goals) = (aggregation, user, goals);
 
     private Guid CompanyId => _user.CompanyId!.Value;

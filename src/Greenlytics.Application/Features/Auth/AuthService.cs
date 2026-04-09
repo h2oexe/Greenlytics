@@ -21,16 +21,18 @@ public class AuthService
 
     public async Task<Result<AuthResponse>> RegisterAsync(RegisterCompanyRequest req, CancellationToken ct)
     {
-        if (await _db.Users.AnyAsync(u => u.Email == req.Email.ToLower(), ct))
+        if (await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email == req.Email.ToLower(), ct))
             return Result<AuthResponse>.Failure("Email already in use.");
 
         var basicPlan = await _db.Plans.FirstOrDefaultAsync(p => p.Name == PlanName.Basic, ct)
             ?? throw new InvalidOperationException("Basic plan not found. Run database seeder.");
 
+        var companySlug = await GenerateUniqueCompanySlugAsync(req.CompanyName, ct);
+
         var company = new Company
         {
             Name = req.CompanyName,
-            Slug = req.CompanyName.ToLower().Replace(" ", "-"),
+            Slug = companySlug,
             PlanId = basicPlan.Id
         };
         _db.Companies.Add(company);
@@ -73,6 +75,7 @@ public class AuthService
     public async Task<Result<AuthResponse>> LoginAsync(LoginRequest req, CancellationToken ct)
     {
         var user = await _db.Users
+            .IgnoreQueryFilters()
             .Include(u => u.Company)
             .FirstOrDefaultAsync(u => u.Email == req.Email.ToLower() && u.IsActive, ct);
 
@@ -109,7 +112,9 @@ public class AuthService
         var claims = _jwt.ValidateExpiredToken(req.AccessToken);
         if (claims is null) return Result<AuthResponse>.Failure("Invalid access token.");
 
-        var user = await _db.Users.FindAsync(new object[] { claims.Value.userId }, ct);
+        var user = await _db.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == claims.Value.userId, ct);
         if (user is null || user.RefreshToken != req.RefreshToken || user.RefreshTokenExpiresAt < _dateTime.UtcNow)
             return Result<AuthResponse>.Failure("Invalid or expired refresh token.");
 
@@ -124,7 +129,7 @@ public class AuthService
 
     public async Task<Result> ForgotPasswordAsync(ForgotPasswordRequest req, CancellationToken ct)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.ToLower(), ct);
+        var user = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Email == req.Email.ToLower(), ct);
         if (user is null) return Result.Success(); // Don't reveal user existence
 
         user.PasswordResetToken = Guid.NewGuid().ToString("N");
@@ -137,7 +142,7 @@ public class AuthService
 
     public async Task<Result> ResetPasswordAsync(ResetPasswordRequest req, CancellationToken ct)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(
+        var user = await _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(
             u => u.PasswordResetToken == req.Token && u.PasswordResetTokenExpiresAt > _dateTime.UtcNow, ct);
 
         if (user is null) return Result.Failure("Invalid or expired reset token.");
@@ -177,7 +182,7 @@ public class AuthService
 
     public async Task<Result<AuthResponse>> AcceptInviteAsync(AcceptInviteRequest req, CancellationToken ct)
     {
-        var user = await _db.Users.Include(u => u.Company)
+        var user = await _db.Users.IgnoreQueryFilters().Include(u => u.Company)
             .FirstOrDefaultAsync(u => u.InviteToken == req.Token && u.InviteTokenExpiresAt > _dateTime.UtcNow, ct);
 
         if (user is null) return Result<AuthResponse>.Failure("Invalid or expired invite token.");
@@ -200,4 +205,38 @@ public class AuthService
     }
 
     private static UserDto MapUser(User u) => new(u.Id, u.CompanyId, u.FirstName, u.LastName, u.Email, u.Role, u.IsActive, u.LastLoginAt, u.CreatedAt);
+
+    private async Task<string> GenerateUniqueCompanySlugAsync(string companyName, CancellationToken ct)
+    {
+        var baseSlug = NormalizeSlug(companyName);
+        var slug = baseSlug;
+        var suffix = 2;
+
+        while (await _db.Companies.AnyAsync(c => c.Slug == slug, ct))
+        {
+            slug = $"{baseSlug}-{suffix}";
+            suffix++;
+        }
+
+        return slug;
+    }
+
+    private static string NormalizeSlug(string companyName)
+    {
+        var slug = new string(
+            companyName
+                .Trim()
+                .ToLowerInvariant()
+                .Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')
+                .ToArray()
+        );
+
+        while (slug.Contains("--"))
+        {
+            slug = slug.Replace("--", "-");
+        }
+
+        slug = slug.Trim('-');
+        return string.IsNullOrWhiteSpace(slug) ? "company" : slug;
+    }
 }
