@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { ApiError } from "../../lib/http";
 import { useAuth } from "../../auth/auth-context";
+import { ApiError } from "../../lib/http";
 
 interface RegisterPageProps {
   onSwitchMode: () => void;
@@ -22,7 +22,7 @@ export function RegisterPage({ onSwitchMode }: RegisterPageProps) {
     setError(null);
 
     if (password !== confirmPassword) {
-      setError("Sifre alanlari ayni olmali.");
+      setError("Şifre alanları aynı olmalı.");
       return;
     }
 
@@ -34,7 +34,7 @@ export function RegisterPage({ onSwitchMode }: RegisterPageProps) {
       if (err instanceof ApiError) {
         setError(err.message);
       } else {
-        setError("Kayit sirasinda beklenmeyen bir hata olustu.");
+        setError("Kayıt sırasında beklenmeyen bir hata oluştu.");
       }
     } finally {
       setSubmitting(false);
@@ -43,19 +43,22 @@ export function RegisterPage({ onSwitchMode }: RegisterPageProps) {
 
   return (
     <div className="auth-form">
-      <p className="eyebrow">Kayit Ol</p>
-      <h2>Yeni sirket ve yonetici kullanici olustur</h2>
-      <p className="muted">
-        Backend sozlesmesine gore ilk kayit sirketi ve admin kullaniciyi birlikte acar.
-      </p>
+      <div className="auth-form-heading">
+        <p className="eyebrow">Kurulum</p>
+        <h3>Yeni şirket ve yönetici kullanıcı oluştur</h3>
+        <p className="muted">
+          İlk kayıt, şirket alanını ve yönetici kullanıcıyı birlikte açar. Sonraki ekip üyeleri bu
+          alan altında çalışır.
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit} className="form-stack">
         <label className="field">
-          <span>Sirket adi</span>
+          <span>Şirket adı</span>
           <input
             value={companyName}
             onChange={(event) => setCompanyName(event.target.value)}
-            placeholder="Greenlytics"
+            placeholder="Greenlytics Türkiye"
             required
           />
         </label>
@@ -83,7 +86,7 @@ export function RegisterPage({ onSwitchMode }: RegisterPageProps) {
         </div>
 
         <label className="field">
-          <span>E-posta</span>
+          <span>İş e-postası</span>
           <input
             type="email"
             value={email}
@@ -96,24 +99,24 @@ export function RegisterPage({ onSwitchMode }: RegisterPageProps) {
 
         <div className="field-grid">
           <label className="field">
-            <span>Sifre</span>
+            <span>Şifre</span>
             <input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Guvenceli bir sifre"
+              placeholder="Güçlü bir şifre belirle"
               autoComplete="new-password"
               required
             />
           </label>
 
           <label className="field">
-            <span>Sifre tekrar</span>
+            <span>Şifre tekrar</span>
             <input
               type="password"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
-              placeholder="Sifreyi tekrar et"
+              placeholder="Şifreyi yeniden gir"
               autoComplete="new-password"
               required
             />
@@ -122,13 +125,13 @@ export function RegisterPage({ onSwitchMode }: RegisterPageProps) {
 
         {error ? <p className="error-banner">{error}</p> : null}
 
-        <button type="submit" className="primary-button" disabled={submitting}>
-          {submitting ? "Kayit olusturuluyor..." : "Sirketi olustur"}
+        <button type="submit" className="primary-button primary-button--large" disabled={submitting}>
+          {submitting ? "Alan hazırlanıyor..." : "Şirket alanını oluştur"}
         </button>
       </form>
 
-      <button type="button" className="text-button" onClick={onSwitchMode}>
-        Zaten hesabin var mi? Giris yap.
+      <button type="button" className="text-button auth-switch-link" onClick={onSwitchMode}>
+        Zaten hesabın var mı? Giriş yap.
       </button>
     </div>
   );

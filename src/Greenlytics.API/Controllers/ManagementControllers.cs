@@ -1,3 +1,4 @@
+using Greenlytics.Application.Common;
 using Greenlytics.Application.Common.Models;
 using Greenlytics.Application.Common.Services;
 using Greenlytics.Application.Features.Goals;
@@ -15,9 +16,9 @@ namespace Greenlytics.API.Controllers;
 public class GoalsController : ControllerBase
 {
     private readonly IApplicationDbContext _db;
-    private readonly GoalService _service;
+    private readonly IGoalService _service;
     private readonly ICurrentUserService _user;
-    public GoalsController(IApplicationDbContext db, GoalService service, ICurrentUserService user) =>
+    public GoalsController(IApplicationDbContext db, IGoalService service, ICurrentUserService user) =>
         (_db, _service, _user) = (db, service, user);
     private Guid CompanyId => _user.CompanyId!.Value;
 
@@ -37,7 +38,18 @@ public class GoalsController : ControllerBase
     [HttpPost, Authorize(Roles = "Admin,Manager"), ProducesResponseType(typeof(GoalDto), 201)]
     public async Task<IActionResult> Create([FromBody] CreateGoalRequest req, CancellationToken ct)
     {
-        var goal = new Goal { CompanyId = CompanyId, Type = req.Type, Name = req.Name, Description = req.Description, TargetValue = req.TargetValue, Unit = req.Unit, Period = req.Period, StartDate = req.StartDate, EndDate = req.EndDate };
+        var goal = new Goal
+        {
+            CompanyId = CompanyId,
+            Type = req.Type,
+            Name = req.Name,
+            Description = req.Description,
+            TargetValue = req.TargetValue,
+            Unit = req.Unit,
+            Period = req.Period,
+            StartDate = DateTimeNormalization.ToUtc(req.StartDate),
+            EndDate = DateTimeNormalization.ToUtc(req.EndDate)
+        };
         _db.Goals.Add(goal);
         await _db.SaveChangesAsync(ct);
         return CreatedAtAction(nameof(GetById), new { id = goal.Id }, new GoalDto(goal.Id, goal.Type, goal.Name, goal.Description, goal.TargetValue, goal.Unit, goal.Period, goal.StartDate, goal.EndDate, goal.Status, goal.CreatedAt));
@@ -51,8 +63,8 @@ public class GoalsController : ControllerBase
         if (req.Name is not null) g.Name = req.Name;
         if (req.Description is not null) g.Description = req.Description;
         if (req.TargetValue.HasValue) g.TargetValue = req.TargetValue.Value;
-        if (req.StartDate.HasValue) g.StartDate = req.StartDate.Value;
-        if (req.EndDate.HasValue) g.EndDate = req.EndDate.Value;
+        if (req.StartDate.HasValue) g.StartDate = DateTimeNormalization.ToUtc(req.StartDate.Value);
+        if (req.EndDate.HasValue) g.EndDate = DateTimeNormalization.ToUtc(req.EndDate.Value);
         if (req.Status.HasValue) g.Status = req.Status.Value;
         g.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
@@ -260,6 +272,9 @@ public class AuditLogController : ControllerBase
     public IActionResult GetList([FromQuery] string? userEmail, [FromQuery] string? entityName,
         [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
     {
+        from = DateTimeNormalization.ToUtc(from);
+        to = DateTimeNormalization.ToUtc(to);
+
         var query = _db.AuditLogs.AsQueryable();
         if (userEmail is not null) query = query.Where(a => a.UserEmail.Contains(userEmail));
         if (entityName is not null) query = query.Where(a => a.EntityName == entityName);

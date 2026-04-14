@@ -92,6 +92,16 @@ export interface PaginatedResponse<T> {
 
 export type EnergyCategory = 0 | 1 | 2 | 3 | 4 | 5;
 export type WaterCategory = 0 | 1 | 2 | 3 | 4;
+export type WasteCategory = 0 | 1 | 2 | 3 | 4 | 5;
+export type CarbonSource = 0 | 1 | 2 | 3 | 4;
+export type TransportType = 0 | 1 | 2 | 3 | 4 | 5;
+export type GoalType = 0 | 1 | 2 | 3;
+export type GoalPeriod = 0 | 1 | 2;
+export type GoalStatus = 0 | 1 | 2 | 3;
+export type ExportType = 0 | 1 | 2;
+export type PlanName = 0 | 1 | 2;
+export type SubscriptionStatus = 0 | 1 | 2 | 3 | 4;
+export type ApiPermission = 0 | 1;
 
 export interface EnergyEntry {
   id: string;
@@ -112,5 +122,116 @@ export interface WaterEntry {
   liters: number;
   recordedAt: string;
   notes: string | null;
+  createdAt: string;
+}
+
+export interface WasteEntry {
+  id: string;
+  companyId: string;
+  category: WasteCategory;
+  categoryName: string | null;
+  isRecyclable: boolean;
+  kg: number;
+  recordedAt: string;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface CarbonInput {
+  id: string;
+  companyId: string;
+  source: CarbonSource;
+  transportType: TransportType | null;
+  description: string | null;
+  value: number;
+  unit: string;
+  cO2eKg: number;
+  emissionFactor: number;
+  recordedAt: string;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface CarbonFootprintResponse {
+  totalCO2eKg: number;
+  totalCO2eTonnes: number;
+  bySource: CategoryBreakdown[];
+  monthlyTrend: Trend[];
+  periodStart: string;
+  periodEnd: string;
+}
+
+export interface Goal {
+  id: string;
+  type: GoalType;
+  name: string;
+  description: string | null;
+  targetValue: number;
+  unit: string;
+  period: GoalPeriod;
+  startDate: string;
+  endDate: string;
+  status: GoalStatus;
+  createdAt: string;
+}
+
+export interface ExportHistoryItem {
+  id: string;
+  fileName: string;
+  exportType: ExportType;
+  fileSizeBytes: number;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface ExportResult {
+  fileId: string;
+  fileName: string;
+  type: ExportType;
+  downloadUrl: string;
+  expiresAt: string;
+  fileSizeBytes: number;
+}
+
+export interface DownloadUrlResponse {
+  downloadUrl: string;
+  expiresInMinutes: number;
+}
+
+export interface Subscription {
+  id: string;
+  planName: PlanName;
+  planDisplayName: string;
+  status: SubscriptionStatus;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  recordsThisMonth: number;
+  maxRecordsPerMonth: number;
+  exportsThisMonth: number;
+  maxExportsPerMonth: number;
+}
+
+export interface Plan {
+  id: string;
+  name: PlanName;
+  displayName: string;
+  monthlyPrice: number;
+  yearlyPrice: number;
+  maxRecordsPerMonth: number;
+  maxExportsPerMonth: number;
+  canExport: boolean;
+  canUseApiKeys: boolean;
+  canUseWebhooks: boolean;
+  canAccessAdvancedReports: boolean;
+}
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  permission: ApiPermission;
+  isActive: boolean;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
   createdAt: string;
 }

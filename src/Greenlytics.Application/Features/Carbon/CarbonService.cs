@@ -1,3 +1,4 @@
+using Greenlytics.Application.Common;
 using Greenlytics.Application.Common.Models;
 using Greenlytics.Application.Common.Services;
 using Greenlytics.Domain.Entities;
@@ -54,8 +55,8 @@ public class CarbonCalculatorService : ICarbonCalculatorService
 
     public async Task<CarbonFootprintDto> GetCarbonFootprintAsync(Guid companyId, DateTime? from, DateTime? to, CancellationToken ct = default)
     {
-        var periodStart = from ?? DateTime.UtcNow.AddMonths(-12);
-        var periodEnd = to ?? DateTime.UtcNow;
+        var periodStart = DateTimeNormalization.ToUtc(from) ?? DateTime.UtcNow.AddMonths(-12);
+        var periodEnd = DateTimeNormalization.ToUtc(to) ?? DateTime.UtcNow;
 
         var inputs = await _db.CarbonInputs
             .Where(c => c.CompanyId == companyId && c.RecordedAt >= periodStart && c.RecordedAt <= periodEnd)
@@ -96,6 +97,9 @@ public class CarbonService
     public async Task<PaginatedResult<CarbonInputDto>> GetListAsync(
         Guid companyId, DateTime? from, DateTime? to, CarbonSource? source, int page, int pageSize, CancellationToken ct)
     {
+        from = DateTimeNormalization.ToUtc(from);
+        to = DateTimeNormalization.ToUtc(to);
+
         var query = _db.CarbonInputs.Where(c => c.CompanyId == companyId);
         if (from.HasValue) query = query.Where(c => c.RecordedAt >= from.Value);
         if (to.HasValue) query = query.Where(c => c.RecordedAt <= to.Value);
@@ -127,7 +131,7 @@ public class CarbonService
         {
             CompanyId = companyId, Source = req.Source, TransportType = req.TransportType,
             Description = req.Description, Value = req.Value, Unit = req.Unit,
-            EmissionFactor = factor, CO2eKg = co2e, RecordedAt = req.RecordedAt, Notes = req.Notes
+            EmissionFactor = factor, CO2eKg = co2e, RecordedAt = DateTimeNormalization.ToUtc(req.RecordedAt), Notes = req.Notes
         };
         _db.CarbonInputs.Add(entry);
         await _db.SaveChangesAsync(ct);
@@ -144,7 +148,7 @@ public class CarbonService
         if (req.Source.HasValue) entry.Source = req.Source.Value;
         if (req.TransportType.HasValue) entry.TransportType = req.TransportType;
         if (req.Description is not null) entry.Description = req.Description;
-        if (req.RecordedAt.HasValue) entry.RecordedAt = req.RecordedAt.Value;
+        if (req.RecordedAt.HasValue) entry.RecordedAt = DateTimeNormalization.ToUtc(req.RecordedAt.Value);
         if (req.Notes is not null) entry.Notes = req.Notes;
 
         // Recalculate CO2e if value or unit changed

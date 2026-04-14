@@ -1,3 +1,4 @@
+using Greenlytics.Application.Common;
 using Greenlytics.Domain.Entities;
 using Greenlytics.Domain.Interfaces;
 using Greenlytics.Infrastructure.Persistence.Configurations;
@@ -80,6 +81,18 @@ public class AppDbContext : DbContext, IApplicationDbContext
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        foreach (var entry in ChangeTracker.Entries()
+                     .Where(e => e.State is EntityState.Added or EntityState.Modified))
+        {
+            foreach (var property in entry.Properties)
+            {
+                if (property.CurrentValue is DateTime value)
+                {
+                    property.CurrentValue = DateTimeNormalization.ToUtc(value);
+                }
+            }
+        }
+
         // Auto-set UpdatedAt for modified entities
         var entries = ChangeTracker.Entries()
             .Where(e => e.State == EntityState.Modified && e.Entity is Domain.Common.BaseEntity);

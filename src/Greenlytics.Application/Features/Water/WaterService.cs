@@ -1,3 +1,4 @@
+using Greenlytics.Application.Common;
 using Greenlytics.Application.Common.Models;
 using Greenlytics.Application.Common.Services;
 using Greenlytics.Domain.Entities;
@@ -19,6 +20,9 @@ public class WaterService
     public async Task<PaginatedResult<WaterEntryDto>> GetListAsync(
         Guid companyId, DateTime? from, DateTime? to, WaterCategory? category, int page, int pageSize, CancellationToken ct)
     {
+        from = DateTimeNormalization.ToUtc(from);
+        to = DateTimeNormalization.ToUtc(to);
+
         var query = _db.WaterEntries.Where(e => e.CompanyId == companyId);
         if (from.HasValue) query = query.Where(e => e.RecordedAt >= from.Value);
         if (to.HasValue) query = query.Where(e => e.RecordedAt <= to.Value);
@@ -43,7 +47,15 @@ public class WaterService
         if (!await _gating.CanAddRecordAsync(companyId, ct))
             return Result<WaterEntryDto>.Failure("Monthly record limit reached. Please upgrade your plan.");
 
-        var entry = new WaterEntry { CompanyId = companyId, Category = req.Category, CategoryName = req.CategoryName, Liters = req.Liters, RecordedAt = req.RecordedAt, Notes = req.Notes };
+        var entry = new WaterEntry
+        {
+            CompanyId = companyId,
+            Category = req.Category,
+            CategoryName = req.CategoryName,
+            Liters = req.Liters,
+            RecordedAt = DateTimeNormalization.ToUtc(req.RecordedAt),
+            Notes = req.Notes
+        };
         _db.WaterEntries.Add(entry);
         await _db.SaveChangesAsync(ct);
         await _gating.IncrementRecordCountAsync(companyId, ct);
@@ -59,7 +71,7 @@ public class WaterService
         if (req.Category.HasValue) entry.Category = req.Category.Value;
         if (req.CategoryName is not null) entry.CategoryName = req.CategoryName;
         if (req.Liters.HasValue) entry.Liters = req.Liters.Value;
-        if (req.RecordedAt.HasValue) entry.RecordedAt = req.RecordedAt.Value;
+        if (req.RecordedAt.HasValue) entry.RecordedAt = DateTimeNormalization.ToUtc(req.RecordedAt.Value);
         if (req.Notes is not null) entry.Notes = req.Notes;
         entry.UpdatedAt = DateTime.UtcNow;
 

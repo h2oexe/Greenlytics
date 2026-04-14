@@ -2,52 +2,61 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../auth/auth-context";
 import { formatDateLabel, formatNumberLabel, formatRoleLabel } from "../../lib/formatting";
 import { apiRequest, ApiError } from "../../lib/http";
-import type { PaginatedResponse, WaterCategory, WaterEntry } from "../../types/api";
+import type { PaginatedResponse, WasteCategory, WasteEntry } from "../../types/api";
 
-interface WaterFilterState {
+interface WasteFilterState {
   from: string;
   to: string;
   category: string;
+  recyclable: string;
 }
 
-interface WaterFormState {
-  category: WaterCategory;
+interface WasteFormState {
+  category: WasteCategory;
   categoryName: string;
-  liters: string;
+  isRecyclable: string;
+  kg: string;
   recordedAt: string;
   notes: string;
 }
 
-const waterCategories: Array<{ value: WaterCategory; label: string }> = [
-  { value: 0, label: "Ofis" },
-  { value: 1, label: "Sulama" },
-  { value: 2, label: "Üretim" },
-  { value: 3, label: "Soğutma" },
-  { value: 4, label: "Diğer" }
+const wasteCategories: Array<{ value: WasteCategory; label: string }> = [
+  { value: 0, label: "Genel atık" },
+  { value: 1, label: "Geri dönüştürülebilir" },
+  { value: 2, label: "Tehlikeli" },
+  { value: 3, label: "Elektronik" },
+  { value: 4, label: "Organik" },
+  { value: 5, label: "Diğer" }
 ];
 
-function getCategoryLabel(category: WaterCategory) {
-  return waterCategories.find((item) => item.value === category)?.label ?? "Bilinmeyen";
+function getCategoryLabel(category: WasteCategory) {
+  return wasteCategories.find((item) => item.value === category)?.label ?? "Bilinmeyen";
 }
 
 function toApiDateTime(value: string) {
   return `${value}T12:00:00`;
 }
 
-function createInitialFormState(): WaterFormState {
+function createInitialFormState(): WasteFormState {
   return {
     category: 0,
     categoryName: "",
-    liters: "",
+    isRecyclable: "true",
+    kg: "",
     recordedAt: new Date().toISOString().slice(0, 10),
     notes: ""
   };
 }
 
-export function WaterPage() {
+export function WastePage() {
   const { session } = useAuth();
-  const [entries, setEntries] = useState<WaterEntry[]>([]);
-  const [filters, setFilters] = useState<WaterFilterState>({ from: "", to: "", category: "" });
+  const [entries, setEntries] = useState<WasteEntry[]>([]);
+  const [filters, setFilters] = useState<WasteFilterState>({
+    from: "",
+    to: "",
+    category: "",
+    recyclable: ""
+  });
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -56,7 +65,7 @@ export function WaterPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
-  const [form, setForm] = useState<WaterFormState>(() => createInitialFormState());
+  const [form, setForm] = useState<WasteFormState>(() => createInitialFormState());
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
 
@@ -84,7 +93,11 @@ export function WaterPage() {
       params.set("category", filters.category);
     }
 
-    const response = await apiRequest<PaginatedResponse<WaterEntry>>(`/api/water?${params.toString()}`);
+    if (filters.recyclable) {
+      params.set("recyclable", filters.recyclable);
+    }
+
+    const response = await apiRequest<PaginatedResponse<WasteEntry>>(`/api/waste?${params.toString()}`);
     setEntries(response.items);
     setTotalCount(response.totalCount);
     setTotalPages(Math.max(response.totalPages, 1));
@@ -103,7 +116,7 @@ export function WaterPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Su kayıtları yüklenemedi.");
+          setError(err instanceof ApiError ? err.message : "Atık kayıtları yüklenemedi.");
         }
       } finally {
         if (!cancelled) {
@@ -117,18 +130,20 @@ export function WaterPage() {
     return () => {
       cancelled = true;
     };
-  }, [filters.category, filters.from, filters.to, page]);
+  }, [filters.category, filters.from, filters.recyclable, filters.to, page]);
 
-  const totalLiters = useMemo(() => entries.reduce((sum, entry) => sum + entry.liters, 0), [entries]);
+  const totalKg = useMemo(() => entries.reduce((sum, entry) => sum + entry.kg, 0), [entries]);
+  const recyclableCount = useMemo(() => entries.filter((entry) => entry.isRecyclable).length, [entries]);
 
-  function startEditing(entry: WaterEntry) {
+  function startEditing(entry: WasteEntry) {
     setEditingEntryId(entry.id);
     setSubmitError(null);
     setSubmitSuccess(null);
     setForm({
       category: entry.category,
       categoryName: entry.categoryName ?? "",
-      liters: entry.liters.toString(),
+      isRecyclable: entry.isRecyclable ? "true" : "false",
+      kg: entry.kg.toString(),
       recordedAt: entry.recordedAt.slice(0, 10),
       notes: entry.notes ?? ""
     });
@@ -151,12 +166,13 @@ export function WaterPage() {
     setSubmitSuccess(null);
 
     try {
-      await apiRequest<WaterEntry>(editingEntryId ? `/api/water/${editingEntryId}` : "/api/water", {
+      await apiRequest<WasteEntry>(editingEntryId ? `/api/waste/${editingEntryId}` : "/api/waste", {
         method: editingEntryId ? "PUT" : "POST",
         body: {
           category: form.category,
           categoryName: form.categoryName.trim(),
-          liters: Number(form.liters),
+          isRecyclable: form.isRecyclable === "true",
+          kg: Number(form.kg),
           recordedAt: toApiDateTime(form.recordedAt),
           notes: form.notes.trim()
         }
@@ -164,7 +180,7 @@ export function WaterPage() {
 
       const wasEditing = Boolean(editingEntryId);
       resetForm();
-      setSubmitSuccess(wasEditing ? "Su kaydı güncellendi." : "Yeni su kaydı oluşturuldu.");
+      setSubmitSuccess(wasEditing ? "Atık kaydı güncellendi." : "Yeni atık kaydı oluşturuldu.");
       setPage(1);
       await refreshEntries(1);
     } catch (err) {
@@ -174,8 +190,8 @@ export function WaterPage() {
     }
   }
 
-  async function handleDelete(entry: WaterEntry) {
-    if (!canManage || !window.confirm("Bu su kaydını silmek istediğine emin misin?")) {
+  async function handleDelete(entry: WasteEntry) {
+    if (!canManage || !window.confirm("Bu atık kaydını silmek istediğine emin misin?")) {
       return;
     }
 
@@ -184,13 +200,13 @@ export function WaterPage() {
     setSubmitSuccess(null);
 
     try {
-      await apiRequest<void>(`/api/water/${entry.id}`, { method: "DELETE" });
+      await apiRequest<void>(`/api/waste/${entry.id}`, { method: "DELETE" });
 
       if (editingEntryId === entry.id) {
         resetForm();
       }
 
-      setSubmitSuccess("Su kaydı silindi.");
+      setSubmitSuccess("Atık kaydı silindi.");
       await refreshEntries(page);
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : "Kayıt silinemedi.");
@@ -203,20 +219,20 @@ export function WaterPage() {
     <div className="module-stack">
       <section className="module-grid">
         <article className="card">
-          <p className="eyebrow">Su Modülü</p>
-          <h2>Tüketim kayıtlarını filtrele ve izle</h2>
+          <p className="eyebrow">Atık Modülü</p>
+          <h2>Atık çıktılarını filtrele ve izle</h2>
           <p className="muted">
-            Bu ekran `GET /api/water` ve `POST /api/water` akışını aynı yerde topluyor.
+            Bu ekran `GET /api/waste` ve `POST /api/waste` akışını geri dönüşüm durumu ile birlikte topluyor.
           </p>
 
           <div className="module-stat-grid">
             <div className="mini-card soft">
-              <strong>{formatNumberLabel(totalLiters)} L</strong>
+              <strong>{formatNumberLabel(totalKg)} kg</strong>
               <span>Listelenen kayıtların toplamı</span>
             </div>
             <div className="mini-card soft">
-              <strong>{totalCount}</strong>
-              <span>Toplam su kaydı</span>
+              <strong>{recyclableCount}</strong>
+              <span>Geri dönüştürülebilir kayıt sayısı</span>
             </div>
             <div className="mini-card soft">
               <strong>{formatRoleLabel(session?.user.role)}</strong>
@@ -227,10 +243,10 @@ export function WaterPage() {
 
         <article className="card">
           <p className="eyebrow">{editingEntryId ? "Kayıt Düzenle" : "Yeni Kayıt"}</p>
-          <h2>{editingEntryId ? "Su kaydını güncelle" : "Su tüketimi ekle"}</h2>
+          <h2>{editingEntryId ? "Atık kaydını güncelle" : "Atık girdisi ekle"}</h2>
           <p className="muted">
             {canManage
-              ? "Yönetici ve sorumlu kullanıcılar bu formdan yeni su kaydı açabilir."
+              ? "Yönetici ve sorumlu kullanıcılar yeni atık kaydı açabilir."
               : "Görüntüleyici rolünde form görünür, ancak kayıt açma yetkisi yoktur."}
           </p>
 
@@ -243,12 +259,12 @@ export function WaterPage() {
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
-                      category: Number(event.target.value) as WaterCategory
+                      category: Number(event.target.value) as WasteCategory
                     }))
                   }
                   disabled={!canManage || saving}
                 >
-                  {waterCategories.map((category) => (
+                  {wasteCategories.map((category) => (
                     <option key={category.value} value={category.value}>
                       {category.label}
                     </option>
@@ -275,17 +291,17 @@ export function WaterPage() {
 
             <div className="field-grid">
               <label className="field">
-                <span>Tüketim (L)</span>
+                <span>Miktar (kg)</span>
                 <input
                   type="number"
                   min="0"
                   step="0.1"
-                  placeholder="5400"
-                  value={form.liters}
+                  placeholder="320"
+                  value={form.kg}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
-                      liters: event.target.value
+                      kg: event.target.value
                     }))
                   }
                   disabled={!canManage || saving}
@@ -294,27 +310,44 @@ export function WaterPage() {
               </label>
 
               <label className="field">
-                <span>Alt kategori</span>
-                <input
-                  type="text"
-                  placeholder="Bahçe sulama, soğutma hattı, mutfak..."
-                  value={form.categoryName}
+                <span>Geri dönüşüm durumu</span>
+                <select
+                  value={form.isRecyclable}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
-                      categoryName: event.target.value
+                      isRecyclable: event.target.value
                     }))
                   }
                   disabled={!canManage || saving}
-                />
+                >
+                  <option value="true">Geri dönüştürülebilir</option>
+                  <option value="false">Geri dönüştürülemez</option>
+                </select>
               </label>
             </div>
+
+            <label className="field">
+              <span>Alt kategori</span>
+              <input
+                type="text"
+                placeholder="Karton, pil, plastik kap, yemek artığı..."
+                value={form.categoryName}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    categoryName: event.target.value
+                  }))
+                }
+                disabled={!canManage || saving}
+              />
+            </label>
 
             <label className="field">
               <span>Not</span>
               <textarea
                 rows={4}
-                placeholder="Sayaç okuma, fatura dönemi veya tesis notu"
+                placeholder="Toplama noktası, bertaraf notu veya operasyon açıklaması"
                 value={form.notes}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -331,7 +364,7 @@ export function WaterPage() {
 
             <div className="form-actions">
               <button type="submit" className="primary-button" disabled={!canManage || saving}>
-                {saving ? "Kaydediliyor..." : editingEntryId ? "Değişiklikleri kaydet" : "Su kaydı ekle"}
+                {saving ? "Kaydediliyor..." : editingEntryId ? "Değişiklikleri kaydet" : "Atık kaydı ekle"}
               </button>
 
               {editingEntryId ? (
@@ -348,7 +381,7 @@ export function WaterPage() {
         <div className="section-header">
           <div className="section-header-copy">
             <p className="section-label">Kayıtlar</p>
-            <h2>Filtrelenmiş su listesi</h2>
+            <h2>Filtrelenmiş atık listesi</h2>
           </div>
         </div>
 
@@ -388,11 +421,26 @@ export function WaterPage() {
                 }}
               >
                 <option value="">Tüm kategoriler</option>
-                {waterCategories.map((category) => (
+                {wasteCategories.map((category) => (
                   <option key={category.value} value={category.value}>
                     {category.label}
                   </option>
                 ))}
+              </select>
+            </label>
+
+            <label className="field compact">
+              <span>Geri dönüşüm</span>
+              <select
+                value={filters.recyclable}
+                onChange={(event) => {
+                  setFilters((current) => ({ ...current, recyclable: event.target.value }));
+                  setPage(1);
+                }}
+              >
+                <option value="">Tümü</option>
+                <option value="true">Geri dönüştürülebilir</option>
+                <option value="false">Geri dönüştürülemez</option>
               </select>
             </label>
           </div>
@@ -400,7 +448,7 @@ export function WaterPage() {
 
         {loading ? (
           <div className="empty-state">
-            <strong>Su kayıtları yükleniyor</strong>
+            <strong>Atık kayıtları yükleniyor</strong>
             <span>Filtrelere göre backend verisi getiriliyor.</span>
           </div>
         ) : null}
@@ -410,7 +458,7 @@ export function WaterPage() {
         {!loading && !error && entries.length === 0 ? (
           <div className="empty-state">
             <strong>Bu filtrelerde kayıt yok</strong>
-            <span>Yeni bir su kaydı ekleyebilir veya filtreleri genişletebilirsin.</span>
+            <span>Yeni bir atık kaydı ekleyebilir veya filtreleri genişletebilirsin.</span>
           </div>
         ) : null}
 
@@ -424,7 +472,10 @@ export function WaterPage() {
                       <strong>{getCategoryLabel(entry.category)}</strong>
                       <p className="muted">{entry.categoryName?.trim() || "Ek alt kategori girilmedi"}</p>
                     </div>
-                    <span className="entry-value">{formatNumberLabel(entry.liters)} L</span>
+                    <div className="entry-side">
+                      <span className="entry-pill">{entry.isRecyclable ? "Dönüşür" : "Bertaraf"}</span>
+                      <span className="entry-value">{formatNumberLabel(entry.kg)} kg</span>
+                    </div>
                   </div>
 
                   <div className="entry-meta">

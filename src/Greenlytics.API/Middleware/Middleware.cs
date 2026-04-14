@@ -2,6 +2,7 @@ using Greenlytics.Domain.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 
 namespace Greenlytics.API.Middleware;
 
@@ -29,6 +30,9 @@ public class CurrentUserService : ICurrentUserService
 public class AuditLogMiddleware
 {
     private readonly RequestDelegate _next;
+    private static readonly Regex GuidRegex = new(
+        "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+        RegexOptions.Compiled);
 
     public AuditLogMiddleware(RequestDelegate next) => _next = next;
 
@@ -45,7 +49,7 @@ public class AuditLogMiddleware
                 UserId = user.UserId,
                 UserEmail = user.Email ?? "unknown",
                 EntityName = context.Request.Path.ToString().Split('/').LastOrDefault("unknown"),
-                EntityId = Guid.Empty,
+                EntityId = ResolveEntityId(context),
                 Action = context.Request.Method switch
                 {
                     "POST" => Domain.Enums.AuditAction.Create,
@@ -58,6 +62,27 @@ public class AuditLogMiddleware
             db.AuditLogs.Add(auditLog);
             await db.SaveChangesAsync();
         }
+    }
+
+    private static Guid ResolveEntityId(HttpContext context)
+    {
+        if (context.Request.RouteValues.TryGetValue("id", out var routeId) &&
+            Guid.TryParse(routeId?.ToString(), out var parsedRouteId))
+        {
+            return parsedRouteId;
+        }
+
+        if (context.Response.Headers.Location.Count > 0)
+        {
+            var location = context.Response.Headers.Location.ToString();
+            var match = GuidRegex.Match(location);
+            if (match.Success && Guid.TryParse(match.Value, out var parsedLocationId))
+            {
+                return parsedLocationId;
+            }
+        }
+
+        return Guid.Empty;
     }
 }
 

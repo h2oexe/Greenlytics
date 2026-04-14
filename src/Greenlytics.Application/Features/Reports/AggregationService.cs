@@ -1,3 +1,4 @@
+using Greenlytics.Application.Common;
 using Greenlytics.Application.Common.Models;
 using Greenlytics.Application.Common.Services;
 using Greenlytics.Domain.Interfaces;
@@ -14,8 +15,8 @@ public class AggregationService : IAggregationService
 
     public async Task<ConsumptionSummaryDto> GetSummaryAsync(Guid companyId, DateTime? from, DateTime? to, CancellationToken ct)
     {
-        var start = from ?? DateTime.UtcNow.AddMonths(-1);
-        var end = to ?? DateTime.UtcNow;
+        var start = DateTimeNormalization.ToUtc(from) ?? DateTime.UtcNow.AddMonths(-1);
+        var end = DateTimeNormalization.ToUtc(to) ?? DateTime.UtcNow;
         var cacheKey = $"report:{companyId}:summary:{start:yyyyMMdd}:{end:yyyyMMdd}";
 
         var cached = await _cache.GetAsync<ConsumptionSummaryDto>(cacheKey, ct);
@@ -97,8 +98,8 @@ public class AggregationService : IAggregationService
 
     public async Task<List<CategoryBreakdownDto>> GetEnergyByCategoryAsync(Guid companyId, DateTime? from, DateTime? to, CancellationToken ct)
     {
-        var start = from ?? DateTime.UtcNow.AddMonths(-1);
-        var end = to ?? DateTime.UtcNow;
+        var start = DateTimeNormalization.ToUtc(from) ?? DateTime.UtcNow.AddMonths(-1);
+        var end = DateTimeNormalization.ToUtc(to) ?? DateTime.UtcNow;
         var data = await _db.EnergyEntries
             .Where(e => e.CompanyId == companyId && e.RecordedAt >= start && e.RecordedAt <= end)
             .GroupBy(e => e.Category)
@@ -112,8 +113,8 @@ public class AggregationService : IAggregationService
 
     public async Task<List<CategoryBreakdownDto>> GetWasteByCategoryAsync(Guid companyId, DateTime? from, DateTime? to, CancellationToken ct)
     {
-        var start = from ?? DateTime.UtcNow.AddMonths(-1);
-        var end = to ?? DateTime.UtcNow;
+        var start = DateTimeNormalization.ToUtc(from) ?? DateTime.UtcNow.AddMonths(-1);
+        var end = DateTimeNormalization.ToUtc(to) ?? DateTime.UtcNow;
         var data = await _db.WasteEntries
             .Where(w => w.CompanyId == companyId && w.RecordedAt >= start && w.RecordedAt <= end)
             .GroupBy(w => w.Category)
@@ -127,8 +128,8 @@ public class AggregationService : IAggregationService
 
     public async Task<List<CategoryBreakdownDto>> GetCarbonBySourceAsync(Guid companyId, DateTime? from, DateTime? to, CancellationToken ct)
     {
-        var start = from ?? DateTime.UtcNow.AddMonths(-1);
-        var end = to ?? DateTime.UtcNow;
+        var start = DateTimeNormalization.ToUtc(from) ?? DateTime.UtcNow.AddMonths(-1);
+        var end = DateTimeNormalization.ToUtc(to) ?? DateTime.UtcNow;
         var data = await _db.CarbonInputs
             .Where(c => c.CompanyId == companyId && c.RecordedAt >= start && c.RecordedAt <= end)
             .GroupBy(c => c.Source)

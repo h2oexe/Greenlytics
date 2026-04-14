@@ -1,3 +1,4 @@
+using Greenlytics.Application.Common;
 using Greenlytics.Application.Common.Models;
 using Greenlytics.Application.Common.Services;
 using Greenlytics.Domain.Entities;
@@ -21,6 +22,9 @@ public class EnergyService
     public async Task<PaginatedResult<EnergyEntryDto>> GetListAsync(
         Guid companyId, DateTime? from, DateTime? to, EnergyCategory? category, int page, int pageSize, CancellationToken ct)
     {
+        from = DateTimeNormalization.ToUtc(from);
+        to = DateTimeNormalization.ToUtc(to);
+
         var query = _db.EnergyEntries.Where(e => e.CompanyId == companyId);
         if (from.HasValue) query = query.Where(e => e.RecordedAt >= from.Value);
         if (to.HasValue) query = query.Where(e => e.RecordedAt <= to.Value);
@@ -51,7 +55,7 @@ public class EnergyService
             Category = req.Category,
             CategoryName = req.CategoryName,
             KWh = req.KWh,
-            RecordedAt = req.RecordedAt,
+            RecordedAt = DateTimeNormalization.ToUtc(req.RecordedAt),
             Notes = req.Notes
         };
         _db.EnergyEntries.Add(entry);
@@ -70,7 +74,7 @@ public class EnergyService
         if (req.Category.HasValue) entry.Category = req.Category.Value;
         if (req.CategoryName is not null) entry.CategoryName = req.CategoryName;
         if (req.KWh.HasValue) entry.KWh = req.KWh.Value;
-        if (req.RecordedAt.HasValue) entry.RecordedAt = req.RecordedAt.Value;
+        if (req.RecordedAt.HasValue) entry.RecordedAt = DateTimeNormalization.ToUtc(req.RecordedAt.Value);
         if (req.Notes is not null) entry.Notes = req.Notes;
         entry.UpdatedAt = DateTime.UtcNow;
 

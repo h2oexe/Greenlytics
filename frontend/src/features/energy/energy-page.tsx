@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../auth/auth-context";
+import { formatDateLabel, formatNumberLabel, formatRoleLabel } from "../../lib/formatting";
 import { apiRequest, ApiError } from "../../lib/http";
-import type { EnergyCategory, EnergyEntry, PaginatedResponse, UserRole } from "../../types/api";
+import type { EnergyCategory, EnergyEntry, PaginatedResponse } from "../../types/api";
 
 interface EnergyFilterState {
   from: string;
@@ -22,33 +23,9 @@ const energyCategories: Array<{ value: EnergyCategory; label: string }> = [
   { value: 1, label: "Fabrika" },
   { value: 2, label: "Depo" },
   { value: 3, label: "Veri merkezi" },
-  { value: 4, label: "Magaza" },
-  { value: 5, label: "Diger" }
+  { value: 4, label: "Mağaza" },
+  { value: 5, label: "Diğer" }
 ];
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 1 }).format(value);
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium" }).format(new Date(value));
-}
-
-function getRoleName(role: UserRole | undefined) {
-  switch (role) {
-    case 0:
-    case "Admin":
-      return "Admin";
-    case 1:
-    case "Manager":
-      return "Manager";
-    case 2:
-    case "Viewer":
-      return "Viewer";
-    default:
-      return "User";
-  }
-}
 
 function getCategoryLabel(category: EnergyCategory) {
   return energyCategories.find((item) => item.value === category)?.label ?? "Bilinmeyen";
@@ -81,8 +58,38 @@ export function EnergyPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [form, setForm] = useState<EnergyFormState>(() => createInitialFormState());
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
 
-  const canManage = session?.user.role === 0 || session?.user.role === 1 || session?.user.role === "Admin" || session?.user.role === "Manager";
+  const canManage =
+    session?.user.role === 0 ||
+    session?.user.role === 1 ||
+    session?.user.role === "Admin" ||
+    session?.user.role === "Manager";
+
+  async function refreshEntries(nextPage = page) {
+    const params = new URLSearchParams({
+      page: nextPage.toString(),
+      pageSize: "8"
+    });
+
+    if (filters.from) {
+      params.set("from", toApiDateTime(filters.from));
+    }
+
+    if (filters.to) {
+      params.set("to", toApiDateTime(filters.to));
+    }
+
+    if (filters.category) {
+      params.set("category", filters.category);
+    }
+
+    const response = await apiRequest<PaginatedResponse<EnergyEntry>>(`/api/energy?${params.toString()}`);
+    setEntries(response.items);
+    setTotalCount(response.totalCount);
+    setTotalPages(Math.max(response.totalPages, 1));
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -91,34 +98,13 @@ export function EnergyPage() {
       setLoading(true);
       setError(null);
 
-      const params = new URLSearchParams({
-        page: page.toString(),
-        pageSize: "8"
-      });
-
-      if (filters.from) {
-        params.set("from", toApiDateTime(filters.from));
-      }
-
-      if (filters.to) {
-        params.set("to", toApiDateTime(filters.to));
-      }
-
-      if (filters.category) {
-        params.set("category", filters.category);
-      }
-
       try {
-        const response = await apiRequest<PaginatedResponse<EnergyEntry>>(`/api/energy?${params.toString()}`);
-
         if (!cancelled) {
-          setEntries(response.items);
-          setTotalCount(response.totalCount);
-          setTotalPages(Math.max(response.totalPages, 1));
+          await refreshEntries(page);
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Enerji kayitlari yuklenemedi.");
+          setError(err instanceof ApiError ? err.message : "Enerji kayıtları yüklenemedi.");
         }
       } finally {
         if (!cancelled) {
@@ -134,10 +120,25 @@ export function EnergyPage() {
     };
   }, [filters.category, filters.from, filters.to, page]);
 
-  const totalKWh = useMemo(
-    () => entries.reduce((sum, entry) => sum + entry.kWh, 0),
-    [entries]
-  );
+  const totalKWh = useMemo(() => entries.reduce((sum, entry) => sum + entry.kWh, 0), [entries]);
+
+  function startEditing(entry: EnergyEntry) {
+    setEditingEntryId(entry.id);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+    setForm({
+      category: entry.category,
+      categoryName: entry.categoryName ?? "",
+      kWh: entry.kWh.toString(),
+      recordedAt: entry.recordedAt.slice(0, 10),
+      notes: entry.notes ?? ""
+    });
+  }
+
+  function resetForm() {
+    setEditingEntryId(null);
+    setForm(createInitialFormState());
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -151,34 +152,51 @@ export function EnergyPage() {
     setSubmitSuccess(null);
 
     try {
-      await apiRequest<EnergyEntry>("/api/energy", {
-        method: "POST",
+      await apiRequest<EnergyEntry>(editingEntryId ? `/api/energy/${editingEntryId}` : "/api/energy", {
+        method: editingEntryId ? "PUT" : "POST",
         body: {
           category: form.category,
-          categoryName: form.categoryName.trim() || null,
+          categoryName: form.categoryName.trim(),
           kWh: Number(form.kWh),
           recordedAt: toApiDateTime(form.recordedAt),
-          notes: form.notes.trim() || null
+          notes: form.notes.trim()
         }
       });
 
-      setForm(createInitialFormState());
-      setSubmitSuccess("Yeni enerji kaydi olusturuldu.");
+      const wasEditing = Boolean(editingEntryId);
+      resetForm();
+      setSubmitSuccess(wasEditing ? "Enerji kaydı güncellendi." : "Yeni enerji kaydı oluşturuldu.");
       setPage(1);
-
-      const params = new URLSearchParams({ page: "1", pageSize: "8" });
-      if (filters.from) params.set("from", toApiDateTime(filters.from));
-      if (filters.to) params.set("to", toApiDateTime(filters.to));
-      if (filters.category) params.set("category", filters.category);
-
-      const response = await apiRequest<PaginatedResponse<EnergyEntry>>(`/api/energy?${params.toString()}`);
-      setEntries(response.items);
-      setTotalCount(response.totalCount);
-      setTotalPages(Math.max(response.totalPages, 1));
+      await refreshEntries(1);
     } catch (err) {
-      setSubmitError(err instanceof ApiError ? err.message : "Kayit olusturulamadi.");
+      setSubmitError(err instanceof ApiError ? err.message : "Kayıt oluşturulamadı.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete(entry: EnergyEntry) {
+    if (!canManage || !window.confirm("Bu enerji kaydını silmek istediğine emin misin?")) {
+      return;
+    }
+
+    setDeletingEntryId(entry.id);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+
+    try {
+      await apiRequest<void>(`/api/energy/${entry.id}`, { method: "DELETE" });
+
+      if (editingEntryId === entry.id) {
+        resetForm();
+      }
+
+      setSubmitSuccess("Enerji kaydı silindi.");
+      await refreshEntries(page);
+    } catch (err) {
+      setSubmitError(err instanceof ApiError ? err.message : "Kayıt silinemedi.");
+    } finally {
+      setDeletingEntryId(null);
     }
   }
 
@@ -186,35 +204,35 @@ export function EnergyPage() {
     <div className="module-stack">
       <section className="module-grid">
         <article className="card">
-          <p className="eyebrow">Enerji Modulu</p>
-          <h2>Tuketim kayitlarini filtrele ve izle</h2>
+          <p className="eyebrow">Enerji Modülü</p>
+          <h2>Tüketim kayıtlarını filtrele ve izle</h2>
           <p className="muted">
-            Bu ekran `GET /api/energy` ve `POST /api/energy` akisini ayni yerde topluyor.
+            Bu ekran `GET /api/energy` ve `POST /api/energy` akışını aynı yerde topluyor.
           </p>
 
           <div className="module-stat-grid">
             <div className="mini-card soft">
-              <strong>{formatNumber(totalKWh)} kWh</strong>
-              <span>Listelenen kayitlarin toplami</span>
+              <strong>{formatNumberLabel(totalKWh)} kWh</strong>
+              <span>Listelenen kayıtların toplamı</span>
             </div>
             <div className="mini-card soft">
               <strong>{totalCount}</strong>
-              <span>Toplam enerji kaydi</span>
+              <span>Toplam enerji kaydı</span>
             </div>
             <div className="mini-card soft">
-              <strong>{getRoleName(session?.user.role)}</strong>
-              <span>Aktif kullanici rolu</span>
+              <strong>{formatRoleLabel(session?.user.role)}</strong>
+              <span>Aktif kullanıcı rolü</span>
             </div>
           </div>
         </article>
 
         <article className="card">
-          <p className="eyebrow">Yeni Kayit</p>
-          <h2>Enerji tuketimi ekle</h2>
+          <p className="eyebrow">{editingEntryId ? "Kayıt Düzenle" : "Yeni Kayıt"}</p>
+          <h2>{editingEntryId ? "Enerji kaydını güncelle" : "Enerji tüketimi ekle"}</h2>
           <p className="muted">
             {canManage
-              ? "Admin ve manager rolleri bu formdan yeni enerji kaydi acabilir."
-              : "Viewer rolunde form gorunur, ancak kayit acma yetkisi yoktur."}
+              ? "Yönetici ve sorumlu kullanıcılar bu formdan yeni enerji kaydı açabilir."
+              : "Görüntüleyici rolünde form görünür, ancak kayıt açma yetkisi yoktur."}
           </p>
 
           <form className="module-form" onSubmit={handleSubmit}>
@@ -240,7 +258,7 @@ export function EnergyPage() {
               </label>
 
               <label className="field">
-                <span>Kayit tarihi</span>
+                <span>Kayıt tarihi</span>
                 <input
                   type="date"
                   value={form.recordedAt}
@@ -258,7 +276,7 @@ export function EnergyPage() {
 
             <div className="field-grid">
               <label className="field">
-                <span>Tuketim (kWh)</span>
+                <span>Tüketim (kWh)</span>
                 <input
                   type="number"
                   min="0"
@@ -280,7 +298,7 @@ export function EnergyPage() {
                 <span>Alt kategori</span>
                 <input
                   type="text"
-                  placeholder="Ana ofis, Hat 2, Veri saloni..."
+                  placeholder="Ana ofis, Hat 2, veri salonu..."
                   value={form.categoryName}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -297,7 +315,7 @@ export function EnergyPage() {
               <span>Not</span>
               <textarea
                 rows={4}
-                placeholder="Fatura donemi, sayac notu veya operasyon aciklamasi"
+                placeholder="Fatura dönemi, sayaç notu veya operasyon açıklaması"
                 value={form.notes}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -312,23 +330,33 @@ export function EnergyPage() {
             {submitError ? <p className="error-banner">{submitError}</p> : null}
             {submitSuccess ? <p className="success-banner">{submitSuccess}</p> : null}
 
-            <button type="submit" className="primary-button" disabled={!canManage || saving}>
-              {saving ? "Kaydediliyor..." : "Enerji kaydi ekle"}
-            </button>
+            <div className="form-actions">
+              <button type="submit" className="primary-button" disabled={!canManage || saving}>
+                {saving ? "Kaydediliyor..." : editingEntryId ? "Değişiklikleri kaydet" : "Enerji kaydı ekle"}
+              </button>
+
+              {editingEntryId ? (
+                <button type="button" className="secondary-button" onClick={resetForm} disabled={saving}>
+                  İptal
+                </button>
+              ) : null}
+            </div>
           </form>
         </article>
       </section>
 
       <section className="card">
         <div className="section-header">
-          <div>
-            <p className="eyebrow">Kayitlar</p>
-            <h2>Filtrelenmis enerji listesi</h2>
+          <div className="section-header-copy">
+            <p className="section-label">Kayıtlar</p>
+            <h2>Filtrelenmiş enerji listesi</h2>
           </div>
+        </div>
 
-          <div className="filter-row">
+        <div className="filter-panel">
+          <div className="filter-row filter-row--panel">
             <label className="field compact">
-              <span>Baslangic</span>
+              <span>Başlangıç</span>
               <input
                 type="date"
                 value={filters.from}
@@ -340,7 +368,7 @@ export function EnergyPage() {
             </label>
 
             <label className="field compact">
-              <span>Bitis</span>
+              <span>Bitiş</span>
               <input
                 type="date"
                 value={filters.to}
@@ -360,7 +388,7 @@ export function EnergyPage() {
                   setPage(1);
                 }}
               >
-                <option value="">Tum kategoriler</option>
+                <option value="">Tüm kategoriler</option>
                 {energyCategories.map((category) => (
                   <option key={category.value} value={category.value}>
                     {category.label}
@@ -373,8 +401,8 @@ export function EnergyPage() {
 
         {loading ? (
           <div className="empty-state">
-            <strong>Enerji kayitlari yukleniyor</strong>
-            <span>Filtrelere gore backend verisi getiriliyor.</span>
+            <strong>Enerji kayıtları yükleniyor</strong>
+            <span>Filtrelere göre backend verisi getiriliyor.</span>
           </div>
         ) : null}
 
@@ -382,8 +410,8 @@ export function EnergyPage() {
 
         {!loading && !error && entries.length === 0 ? (
           <div className="empty-state">
-            <strong>Bu filtrelerde kayit yok</strong>
-            <span>Yeni bir enerji kaydi ekleyebilir veya filtreleri genisletebilirsin.</span>
+            <strong>Bu filtrelerde kayıt yok</strong>
+            <span>Yeni bir enerji kaydı ekleyebilir veya filtreleri genişletebilirsin.</span>
           </div>
         ) : null}
 
@@ -395,19 +423,33 @@ export function EnergyPage() {
                   <div className="entry-card-header">
                     <div>
                       <strong>{getCategoryLabel(entry.category)}</strong>
-                      <p className="muted">
-                        {entry.categoryName?.trim() || "Ek alt kategori girilmedi"}
-                      </p>
+                      <p className="muted">{entry.categoryName?.trim() || "Ek alt kategori girilmedi"}</p>
                     </div>
-                    <span className="entry-value">{formatNumber(entry.kWh)} kWh</span>
+                    <span className="entry-value">{formatNumberLabel(entry.kWh)} kWh</span>
                   </div>
 
                   <div className="entry-meta">
-                    <span>{formatDate(entry.recordedAt)}</span>
-                    <span>Olusturma: {formatDate(entry.createdAt)}</span>
+                    <span>{formatDateLabel(entry.recordedAt)}</span>
+                    <span>Oluşturma: {formatDateLabel(entry.createdAt)}</span>
                   </div>
 
                   <p className="entry-notes">{entry.notes?.trim() || "Not girilmedi."}</p>
+
+                  {canManage ? (
+                    <div className="entry-actions">
+                      <button type="button" className="secondary-button" onClick={() => startEditing(entry)}>
+                        Düzenle
+                      </button>
+                      <button
+                        type="button"
+                        className="danger-button"
+                        onClick={() => handleDelete(entry)}
+                        disabled={deletingEntryId === entry.id}
+                      >
+                        {deletingEntryId === entry.id ? "Siliniyor..." : "Sil"}
+                      </button>
+                    </div>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -419,7 +461,7 @@ export function EnergyPage() {
                 onClick={() => setPage((current) => Math.max(current - 1, 1))}
                 disabled={page === 1}
               >
-                Onceki
+                Önceki
               </button>
               <span>
                 Sayfa {page} / {Math.max(totalPages, 1)}

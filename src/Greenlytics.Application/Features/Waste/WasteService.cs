@@ -1,3 +1,4 @@
+using Greenlytics.Application.Common;
 using Greenlytics.Application.Common.Models;
 using Greenlytics.Application.Common.Services;
 using Greenlytics.Domain.Entities;
@@ -19,6 +20,9 @@ public class WasteService
     public async Task<PaginatedResult<WasteEntryDto>> GetListAsync(
         Guid companyId, DateTime? from, DateTime? to, WasteCategory? category, bool? recyclable, int page, int pageSize, CancellationToken ct)
     {
+        from = DateTimeNormalization.ToUtc(from);
+        to = DateTimeNormalization.ToUtc(to);
+
         var query = _db.WasteEntries.Where(e => e.CompanyId == companyId);
         if (from.HasValue) query = query.Where(e => e.RecordedAt >= from.Value);
         if (to.HasValue) query = query.Where(e => e.RecordedAt <= to.Value);
@@ -44,7 +48,16 @@ public class WasteService
         if (!await _gating.CanAddRecordAsync(companyId, ct))
             return Result<WasteEntryDto>.Failure("Monthly record limit reached. Please upgrade your plan.");
 
-        var entry = new WasteEntry { CompanyId = companyId, Category = req.Category, CategoryName = req.CategoryName, IsRecyclable = req.IsRecyclable, Kg = req.Kg, RecordedAt = req.RecordedAt, Notes = req.Notes };
+        var entry = new WasteEntry
+        {
+            CompanyId = companyId,
+            Category = req.Category,
+            CategoryName = req.CategoryName,
+            IsRecyclable = req.IsRecyclable,
+            Kg = req.Kg,
+            RecordedAt = DateTimeNormalization.ToUtc(req.RecordedAt),
+            Notes = req.Notes
+        };
         _db.WasteEntries.Add(entry);
         await _db.SaveChangesAsync(ct);
         await _gating.IncrementRecordCountAsync(companyId, ct);
@@ -61,7 +74,7 @@ public class WasteService
         if (req.CategoryName is not null) entry.CategoryName = req.CategoryName;
         if (req.IsRecyclable.HasValue) entry.IsRecyclable = req.IsRecyclable.Value;
         if (req.Kg.HasValue) entry.Kg = req.Kg.Value;
-        if (req.RecordedAt.HasValue) entry.RecordedAt = req.RecordedAt.Value;
+        if (req.RecordedAt.HasValue) entry.RecordedAt = DateTimeNormalization.ToUtc(req.RecordedAt.Value);
         if (req.Notes is not null) entry.Notes = req.Notes;
         entry.UpdatedAt = DateTime.UtcNow;
 

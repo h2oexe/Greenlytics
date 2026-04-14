@@ -2,52 +2,97 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../auth/auth-context";
 import { formatDateLabel, formatNumberLabel, formatRoleLabel } from "../../lib/formatting";
 import { apiRequest, ApiError } from "../../lib/http";
-import type { PaginatedResponse, WaterCategory, WaterEntry } from "../../types/api";
+import type {
+  CarbonFootprintResponse,
+  CarbonInput,
+  CarbonSource,
+  PaginatedResponse,
+  TransportType
+} from "../../types/api";
 
-interface WaterFilterState {
+interface CarbonFilterState {
   from: string;
   to: string;
-  category: string;
+  source: string;
 }
 
-interface WaterFormState {
-  category: WaterCategory;
-  categoryName: string;
-  liters: string;
+interface CarbonFormState {
+  source: CarbonSource;
+  transportType: string;
+  description: string;
+  value: string;
+  unit: string;
   recordedAt: string;
   notes: string;
 }
 
-const waterCategories: Array<{ value: WaterCategory; label: string }> = [
-  { value: 0, label: "Ofis" },
-  { value: 1, label: "Sulama" },
-  { value: 2, label: "Üretim" },
-  { value: 3, label: "Soğutma" },
+const carbonSources: Array<{ value: CarbonSource; label: string }> = [
+  { value: 0, label: "Ulaşım" },
+  { value: 1, label: "Elektrik" },
+  { value: 2, label: "Doğalgaz" },
+  { value: 3, label: "Havacılık" },
   { value: 4, label: "Diğer" }
 ];
 
-function getCategoryLabel(category: WaterCategory) {
-  return waterCategories.find((item) => item.value === category)?.label ?? "Bilinmeyen";
+const transportTypes: Array<{ value: TransportType; label: string }> = [
+  { value: 0, label: "Araba" },
+  { value: 1, label: "Kamyon" },
+  { value: 2, label: "Otobüs" },
+  { value: 3, label: "Tren" },
+  { value: 4, label: "Gemi" },
+  { value: 5, label: "Motosiklet" }
+];
+
+function getSourceLabel(source: CarbonSource) {
+  return carbonSources.find((item) => item.value === source)?.label ?? "Bilinmeyen";
+}
+
+function getTransportTypeLabel(transportType: TransportType | null) {
+  if (transportType === null) {
+    return "Genel";
+  }
+
+  return transportTypes.find((item) => item.value === transportType)?.label ?? "Genel";
 }
 
 function toApiDateTime(value: string) {
   return `${value}T12:00:00`;
 }
 
-function createInitialFormState(): WaterFormState {
+function getDefaultUnit(source: CarbonSource) {
+  switch (source) {
+    case 0:
+      return "km";
+    case 1:
+      return "kwh";
+    case 2:
+      return "m3";
+    case 3:
+      return "km";
+    case 4:
+      return "kg";
+    default:
+      return "kg";
+  }
+}
+
+function createInitialFormState(): CarbonFormState {
   return {
-    category: 0,
-    categoryName: "",
-    liters: "",
+    source: 0,
+    transportType: "0",
+    description: "",
+    value: "",
+    unit: "km",
     recordedAt: new Date().toISOString().slice(0, 10),
     notes: ""
   };
 }
 
-export function WaterPage() {
+export function CarbonPage() {
   const { session } = useAuth();
-  const [entries, setEntries] = useState<WaterEntry[]>([]);
-  const [filters, setFilters] = useState<WaterFilterState>({ from: "", to: "", category: "" });
+  const [entries, setEntries] = useState<CarbonInput[]>([]);
+  const [footprint, setFootprint] = useState<CarbonFootprintResponse | null>(null);
+  const [filters, setFilters] = useState<CarbonFilterState>({ from: "", to: "", source: "" });
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -56,7 +101,7 @@ export function WaterPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
-  const [form, setForm] = useState<WaterFormState>(() => createInitialFormState());
+  const [form, setForm] = useState<CarbonFormState>(() => createInitialFormState());
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
 
@@ -66,44 +111,53 @@ export function WaterPage() {
     session?.user.role === "Admin" ||
     session?.user.role === "Manager";
 
-  async function refreshEntries(nextPage = page) {
-    const params = new URLSearchParams({
-      page: nextPage.toString(),
-      pageSize: "8"
-    });
+  const isTransport = form.source === 0;
+
+  async function refreshData(nextPage = page) {
+    const params = new URLSearchParams({ page: nextPage.toString(), pageSize: "8" });
+    const footprintParams = new URLSearchParams();
 
     if (filters.from) {
-      params.set("from", toApiDateTime(filters.from));
+      const fromValue = toApiDateTime(filters.from);
+      params.set("from", fromValue);
+      footprintParams.set("from", fromValue);
     }
 
     if (filters.to) {
-      params.set("to", toApiDateTime(filters.to));
+      const toValue = toApiDateTime(filters.to);
+      params.set("to", toValue);
+      footprintParams.set("to", toValue);
     }
 
-    if (filters.category) {
-      params.set("category", filters.category);
+    if (filters.source) {
+      params.set("source", filters.source);
     }
 
-    const response = await apiRequest<PaginatedResponse<WaterEntry>>(`/api/water?${params.toString()}`);
-    setEntries(response.items);
-    setTotalCount(response.totalCount);
-    setTotalPages(Math.max(response.totalPages, 1));
+    const [listResponse, footprintResponse] = await Promise.all([
+      apiRequest<PaginatedResponse<CarbonInput>>(`/api/carbon?${params.toString()}`),
+      apiRequest<CarbonFootprintResponse>(`/api/carbon/footprint?${footprintParams.toString()}`)
+    ]);
+
+    setEntries(listResponse.items);
+    setTotalCount(listResponse.totalCount);
+    setTotalPages(Math.max(listResponse.totalPages, 1));
+    setFootprint(footprintResponse);
   }
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadEntries() {
+    async function loadData() {
       setLoading(true);
       setError(null);
 
       try {
         if (!cancelled) {
-          await refreshEntries(page);
+          await refreshData(page);
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Su kayıtları yüklenemedi.");
+          setError(err instanceof ApiError ? err.message : "Karbon kayıtları yüklenemedi.");
         }
       } finally {
         if (!cancelled) {
@@ -112,23 +166,28 @@ export function WaterPage() {
       }
     }
 
-    void loadEntries();
+    void loadData();
 
     return () => {
       cancelled = true;
     };
-  }, [filters.category, filters.from, filters.to, page]);
+  }, [filters.from, filters.to, filters.source, page]);
 
-  const totalLiters = useMemo(() => entries.reduce((sum, entry) => sum + entry.liters, 0), [entries]);
+  const filteredCarbonKg = useMemo(
+    () => entries.reduce((sum, entry) => sum + entry.cO2eKg, 0),
+    [entries]
+  );
 
-  function startEditing(entry: WaterEntry) {
+  function startEditing(entry: CarbonInput) {
     setEditingEntryId(entry.id);
     setSubmitError(null);
     setSubmitSuccess(null);
     setForm({
-      category: entry.category,
-      categoryName: entry.categoryName ?? "",
-      liters: entry.liters.toString(),
+      source: entry.source,
+      transportType: entry.transportType !== null ? entry.transportType.toString() : "",
+      description: entry.description ?? "",
+      value: entry.value.toString(),
+      unit: entry.unit,
       recordedAt: entry.recordedAt.slice(0, 10),
       notes: entry.notes ?? ""
     });
@@ -151,12 +210,14 @@ export function WaterPage() {
     setSubmitSuccess(null);
 
     try {
-      await apiRequest<WaterEntry>(editingEntryId ? `/api/water/${editingEntryId}` : "/api/water", {
+      await apiRequest<CarbonInput>(editingEntryId ? `/api/carbon/${editingEntryId}` : "/api/carbon", {
         method: editingEntryId ? "PUT" : "POST",
         body: {
-          category: form.category,
-          categoryName: form.categoryName.trim(),
-          liters: Number(form.liters),
+          source: form.source,
+          transportType: isTransport ? Number(form.transportType) : null,
+          description: form.description.trim(),
+          value: Number(form.value),
+          unit: form.unit.trim().toLowerCase(),
           recordedAt: toApiDateTime(form.recordedAt),
           notes: form.notes.trim()
         }
@@ -164,9 +225,9 @@ export function WaterPage() {
 
       const wasEditing = Boolean(editingEntryId);
       resetForm();
-      setSubmitSuccess(wasEditing ? "Su kaydı güncellendi." : "Yeni su kaydı oluşturuldu.");
+      setSubmitSuccess(wasEditing ? "Karbon girdisi güncellendi." : "Yeni karbon girdisi oluşturuldu.");
       setPage(1);
-      await refreshEntries(1);
+      await refreshData(1);
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : "Kayıt oluşturulamadı.");
     } finally {
@@ -174,8 +235,17 @@ export function WaterPage() {
     }
   }
 
-  async function handleDelete(entry: WaterEntry) {
-    if (!canManage || !window.confirm("Bu su kaydını silmek istediğine emin misin?")) {
+  function handleSourceChange(nextSource: CarbonSource) {
+    setForm((current) => ({
+      ...current,
+      source: nextSource,
+      unit: getDefaultUnit(nextSource),
+      transportType: nextSource === 0 ? current.transportType || "0" : ""
+    }));
+  }
+
+  async function handleDelete(entry: CarbonInput) {
+    if (!canManage || !window.confirm("Bu karbon girdisini silmek istediğine emin misin?")) {
       return;
     }
 
@@ -184,14 +254,14 @@ export function WaterPage() {
     setSubmitSuccess(null);
 
     try {
-      await apiRequest<void>(`/api/water/${entry.id}`, { method: "DELETE" });
+      await apiRequest<void>(`/api/carbon/${entry.id}`, { method: "DELETE" });
 
       if (editingEntryId === entry.id) {
         resetForm();
       }
 
-      setSubmitSuccess("Su kaydı silindi.");
-      await refreshEntries(page);
+      setSubmitSuccess("Karbon girdisi silindi.");
+      await refreshData(page);
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : "Kayıt silinemedi.");
     } finally {
@@ -203,54 +273,61 @@ export function WaterPage() {
     <div className="module-stack">
       <section className="module-grid">
         <article className="card">
-          <p className="eyebrow">Su Modülü</p>
-          <h2>Tüketim kayıtlarını filtrele ve izle</h2>
+          <p className="eyebrow">Karbon Modülü</p>
+          <h2>Emisyon girdilerini filtrele ve izle</h2>
           <p className="muted">
-            Bu ekran `GET /api/water` ve `POST /api/water` akışını aynı yerde topluyor.
+            Bu ekran `GET /api/carbon`, `POST /api/carbon` ve `GET /api/carbon/footprint` verilerini birlikte kullanıyor.
           </p>
 
           <div className="module-stat-grid">
             <div className="mini-card soft">
-              <strong>{formatNumberLabel(totalLiters)} L</strong>
-              <span>Listelenen kayıtların toplamı</span>
+              <strong>{formatNumberLabel(filteredCarbonKg)} kgCO2e</strong>
+              <span>Listelenen kayıtların toplam etkisi</span>
             </div>
             <div className="mini-card soft">
-              <strong>{totalCount}</strong>
-              <span>Toplam su kaydı</span>
+              <strong>{formatNumberLabel(footprint?.totalCO2eTonnes ?? 0, 2)} ton</strong>
+              <span>Seçilen tarih aralığı toplam ayak izi</span>
             </div>
             <div className="mini-card soft">
               <strong>{formatRoleLabel(session?.user.role)}</strong>
               <span>Aktif kullanıcı rolü</span>
             </div>
           </div>
+
+          <div className="list-stack module-insight-list">
+            {(footprint?.bySource ?? []).slice(0, 3).map((item) => (
+              <div key={item.category} className="list-row">
+                <span>{item.category}</span>
+                <strong>{formatNumberLabel(item.value)} kgCO2e</strong>
+              </div>
+            ))}
+            {!footprint || footprint.bySource.length === 0 ? (
+              <p className="muted">Henüz kaynak bazlı karbon dağılımı yok.</p>
+            ) : null}
+          </div>
         </article>
 
         <article className="card">
           <p className="eyebrow">{editingEntryId ? "Kayıt Düzenle" : "Yeni Kayıt"}</p>
-          <h2>{editingEntryId ? "Su kaydını güncelle" : "Su tüketimi ekle"}</h2>
+          <h2>{editingEntryId ? "Karbon girdisini güncelle" : "Karbon girdisi ekle"}</h2>
           <p className="muted">
             {canManage
-              ? "Yönetici ve sorumlu kullanıcılar bu formdan yeni su kaydı açabilir."
+              ? "Yönetici ve sorumlu kullanıcılar yeni karbon girdisi açabilir. CO2e backend tarafında otomatik hesaplanır."
               : "Görüntüleyici rolünde form görünür, ancak kayıt açma yetkisi yoktur."}
           </p>
 
           <form className="module-form" onSubmit={handleSubmit}>
             <div className="field-grid">
               <label className="field">
-                <span>Kategori</span>
+                <span>Kaynak</span>
                 <select
-                  value={form.category}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      category: Number(event.target.value) as WaterCategory
-                    }))
-                  }
+                  value={form.source}
+                  onChange={(event) => handleSourceChange(Number(event.target.value) as CarbonSource)}
                   disabled={!canManage || saving}
                 >
-                  {waterCategories.map((category) => (
-                    <option key={category.value} value={category.value}>
-                      {category.label}
+                  {carbonSources.map((source) => (
+                    <option key={source.value} value={source.value}>
+                      {source.label}
                     </option>
                   ))}
                 </select>
@@ -275,17 +352,17 @@ export function WaterPage() {
 
             <div className="field-grid">
               <label className="field">
-                <span>Tüketim (L)</span>
+                <span>Değer</span>
                 <input
                   type="number"
                   min="0"
                   step="0.1"
-                  placeholder="5400"
-                  value={form.liters}
+                  placeholder={isTransport ? "120" : "850"}
+                  value={form.value}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
-                      liters: event.target.value
+                      value: event.target.value
                     }))
                   }
                   disabled={!canManage || saving}
@@ -294,15 +371,58 @@ export function WaterPage() {
               </label>
 
               <label className="field">
-                <span>Alt kategori</span>
+                <span>Birim</span>
                 <input
                   type="text"
-                  placeholder="Bahçe sulama, soğutma hattı, mutfak..."
-                  value={form.categoryName}
+                  placeholder="km / kwh / m3 / kg"
+                  value={form.unit}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
-                      categoryName: event.target.value
+                      unit: event.target.value
+                    }))
+                  }
+                  disabled={!canManage || saving}
+                  required
+                />
+              </label>
+            </div>
+
+            <div className="field-grid">
+              <label className="field">
+                <span>Taşıma tipi</span>
+                <select
+                  value={form.transportType}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      transportType: event.target.value
+                    }))
+                  }
+                  disabled={!canManage || saving || !isTransport}
+                >
+                  {isTransport ? (
+                    transportTypes.map((transportType) => (
+                      <option key={transportType.value} value={transportType.value}>
+                        {transportType.label}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">Bu kaynakta kullanılmıyor</option>
+                  )}
+                </select>
+              </label>
+
+              <label className="field">
+                <span>Açıklama</span>
+                <input
+                  type="text"
+                  placeholder="Servis rotası, elektrik faturası, kazan tüketimi..."
+                  value={form.description}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      description: event.target.value
                     }))
                   }
                   disabled={!canManage || saving}
@@ -314,7 +434,7 @@ export function WaterPage() {
               <span>Not</span>
               <textarea
                 rows={4}
-                placeholder="Sayaç okuma, fatura dönemi veya tesis notu"
+                placeholder="Kaynak, varsayım veya operasyon notu"
                 value={form.notes}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -331,7 +451,7 @@ export function WaterPage() {
 
             <div className="form-actions">
               <button type="submit" className="primary-button" disabled={!canManage || saving}>
-                {saving ? "Kaydediliyor..." : editingEntryId ? "Değişiklikleri kaydet" : "Su kaydı ekle"}
+                {saving ? "Kaydediliyor..." : editingEntryId ? "Değişiklikleri kaydet" : "Karbon girdisi ekle"}
               </button>
 
               {editingEntryId ? (
@@ -348,7 +468,7 @@ export function WaterPage() {
         <div className="section-header">
           <div className="section-header-copy">
             <p className="section-label">Kayıtlar</p>
-            <h2>Filtrelenmiş su listesi</h2>
+            <h2>Filtrelenmiş karbon listesi</h2>
           </div>
         </div>
 
@@ -379,18 +499,18 @@ export function WaterPage() {
             </label>
 
             <label className="field compact">
-              <span>Kategori</span>
+              <span>Kaynak</span>
               <select
-                value={filters.category}
+                value={filters.source}
                 onChange={(event) => {
-                  setFilters((current) => ({ ...current, category: event.target.value }));
+                  setFilters((current) => ({ ...current, source: event.target.value }));
                   setPage(1);
                 }}
               >
-                <option value="">Tüm kategoriler</option>
-                {waterCategories.map((category) => (
-                  <option key={category.value} value={category.value}>
-                    {category.label}
+                <option value="">Tüm kaynaklar</option>
+                {carbonSources.map((source) => (
+                  <option key={source.value} value={source.value}>
+                    {source.label}
                   </option>
                 ))}
               </select>
@@ -400,8 +520,8 @@ export function WaterPage() {
 
         {loading ? (
           <div className="empty-state">
-            <strong>Su kayıtları yükleniyor</strong>
-            <span>Filtrelere göre backend verisi getiriliyor.</span>
+            <strong>Karbon kayıtları yükleniyor</strong>
+            <span>Liste ve footprint özeti backend'den getiriliyor.</span>
           </div>
         ) : null}
 
@@ -410,7 +530,7 @@ export function WaterPage() {
         {!loading && !error && entries.length === 0 ? (
           <div className="empty-state">
             <strong>Bu filtrelerde kayıt yok</strong>
-            <span>Yeni bir su kaydı ekleyebilir veya filtreleri genişletebilirsin.</span>
+            <span>Yeni bir karbon girdisi ekleyebilir veya filtreleri genişletebilirsin.</span>
           </div>
         ) : null}
 
@@ -421,13 +541,19 @@ export function WaterPage() {
                 <article key={entry.id} className="entry-card">
                   <div className="entry-card-header">
                     <div>
-                      <strong>{getCategoryLabel(entry.category)}</strong>
-                      <p className="muted">{entry.categoryName?.trim() || "Ek alt kategori girilmedi"}</p>
+                      <strong>{getSourceLabel(entry.source)}</strong>
+                      <p className="muted">{entry.description?.trim() || getTransportTypeLabel(entry.transportType)}</p>
                     </div>
-                    <span className="entry-value">{formatNumberLabel(entry.liters)} L</span>
+                    <div className="entry-side">
+                      <span className="entry-pill">{formatNumberLabel(entry.emissionFactor, 3)} faktör</span>
+                      <span className="entry-value">{formatNumberLabel(entry.cO2eKg)} kgCO2e</span>
+                    </div>
                   </div>
 
                   <div className="entry-meta">
+                    <span>
+                      {formatNumberLabel(entry.value)} {entry.unit}
+                    </span>
                     <span>{formatDateLabel(entry.recordedAt)}</span>
                     <span>Oluşturma: {formatDateLabel(entry.createdAt)}</span>
                   </div>

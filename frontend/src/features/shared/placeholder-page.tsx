@@ -7,22 +7,22 @@ interface PlaceholderPageProps {
 export function PlaceholderPage({ title, description, endpoint }: PlaceholderPageProps) {
   return (
     <section className="placeholder-card">
-      <p className="eyebrow">Siradaki modul</p>
+      <p className="eyebrow">Sıradaki modül</p>
       <h2>{title}</h2>
       <p className="muted">{description}</p>
 
       <div className="placeholder-grid">
         <article className="mini-card">
-          <strong>Ilk endpoint</strong>
+          <strong>İlk endpoint</strong>
           <span>{endpoint}</span>
         </article>
         <article className="mini-card">
-          <strong>UI ihtiyaci</strong>
-          <span>Liste, filtre, detay ve form akislarini tasarlayabiliriz.</span>
+          <strong>UI ihtiyacı</strong>
+          <span>Liste, filtre, detay ve form akışlarını tasarlayabiliriz.</span>
         </article>
         <article className="mini-card">
           <strong>Sonraki hedef</strong>
-          <span>Bu modul icin gercek tablo ve form komponentleri olusturmak.</span>
+          <span>Bu modül için gerçek tablo ve form komponentleri oluşturmak.</span>
         </article>
       </div>
     </section>

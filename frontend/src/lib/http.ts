@@ -48,7 +48,7 @@ async function parseError(response: Response) {
     payload?.errors?.join(", ") ||
     payload?.error ||
     payload?.message ||
-    `Istek basarisiz oldu (${response.status})`;
+    `İstek başarısız oldu (${response.status})`;
 
   return new ApiError(message, response.status);
 }
@@ -104,7 +104,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     });
   } catch {
     throw new ApiError(
-      `API'ye baglanilamiyor. Backend'in ${API_BASE_URL} adresinde calistigindan emin ol.`,
+      `API'ye bağlanılamıyor. Backend'in ${API_BASE_URL} adresinde çalıştığından emin ol.`,
       0
     );
   }
