@@ -3,6 +3,8 @@ import { useAuth } from "../../auth/auth-context";
 import { formatDateLabel, formatNumberLabel, formatRoleLabel } from "../../lib/formatting";
 import { apiRequest, ApiError } from "../../lib/http";
 import type { PaginatedResponse, WasteCategory, WasteEntry } from "../../types/api";
+import { useFeedback } from "../../ui/feedback-context";
+import { EmptyState, ErrorState, LoadingState } from "../../ui/state-blocks";
 
 interface WasteFilterState {
   from: string;
@@ -50,6 +52,7 @@ function createInitialFormState(): WasteFormState {
 
 export function WastePage() {
   const { session } = useAuth();
+  const { confirm, showToast } = useFeedback();
   const [entries, setEntries] = useState<WasteEntry[]>([]);
   const [filters, setFilters] = useState<WasteFilterState>({
     from: "",
@@ -64,7 +67,6 @@ export function WastePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [form, setForm] = useState<WasteFormState>(() => createInitialFormState());
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
@@ -138,7 +140,6 @@ export function WastePage() {
   function startEditing(entry: WasteEntry) {
     setEditingEntryId(entry.id);
     setSubmitError(null);
-    setSubmitSuccess(null);
     setForm({
       category: entry.category,
       categoryName: entry.categoryName ?? "",
@@ -163,7 +164,6 @@ export function WastePage() {
 
     setSaving(true);
     setSubmitError(null);
-    setSubmitSuccess(null);
 
     try {
       await apiRequest<WasteEntry>(editingEntryId ? `/api/waste/${editingEntryId}` : "/api/waste", {
@@ -180,9 +180,13 @@ export function WastePage() {
 
       const wasEditing = Boolean(editingEntryId);
       resetForm();
-      setSubmitSuccess(wasEditing ? "Atık kaydı güncellendi." : "Yeni atık kaydı oluşturuldu.");
       setPage(1);
       await refreshEntries(1);
+      showToast({
+        title: wasEditing ? "Atık kaydı güncellendi" : "Atık kaydı eklendi",
+        message: "Liste en güncel haliyle yenilendi.",
+        tone: "success"
+      });
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : "Kayıt oluşturulamadı.");
     } finally {
@@ -191,13 +195,24 @@ export function WastePage() {
   }
 
   async function handleDelete(entry: WasteEntry) {
-    if (!canManage || !window.confirm("Bu atık kaydını silmek istediğine emin misin?")) {
+    if (!canManage) {
+      return;
+    }
+
+    const approved = await confirm({
+      title: "Atık kaydı silinsin mi?",
+      message: "Bu kayıt listeden kaldırılacak. İşlem tamamlandığında geri alma seçeneği yok.",
+      confirmLabel: "Kaydı sil",
+      cancelLabel: "Vazgeç",
+      tone: "danger"
+    });
+
+    if (!approved) {
       return;
     }
 
     setDeletingEntryId(entry.id);
     setSubmitError(null);
-    setSubmitSuccess(null);
 
     try {
       await apiRequest<void>(`/api/waste/${entry.id}`, { method: "DELETE" });
@@ -206,8 +221,12 @@ export function WastePage() {
         resetForm();
       }
 
-      setSubmitSuccess("Atık kaydı silindi.");
       await refreshEntries(page);
+      showToast({
+        title: "Atık kaydı silindi",
+        message: "Liste güncellendi.",
+        tone: "success"
+      });
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : "Kayıt silinemedi.");
     } finally {
@@ -360,7 +379,6 @@ export function WastePage() {
             </label>
 
             {submitError ? <p className="error-banner">{submitError}</p> : null}
-            {submitSuccess ? <p className="success-banner">{submitSuccess}</p> : null}
 
             <div className="form-actions">
               <button type="submit" className="primary-button" disabled={!canManage || saving}>
@@ -447,19 +465,16 @@ export function WastePage() {
         </div>
 
         {loading ? (
-          <div className="empty-state">
-            <strong>Atık kayıtları yükleniyor</strong>
-            <span>Filtrelere göre backend verisi getiriliyor.</span>
-          </div>
+          <LoadingState title="Atık kayıtları yükleniyor" message="Filtrelere göre backend verisi getiriliyor." />
         ) : null}
 
-        {!loading && error ? <p className="error-banner">{error}</p> : null}
+        {!loading && error ? <ErrorState title="Atık kayıtları alınamadı" message={error} /> : null}
 
         {!loading && !error && entries.length === 0 ? (
-          <div className="empty-state">
-            <strong>Bu filtrelerde kayıt yok</strong>
-            <span>Yeni bir atık kaydı ekleyebilir veya filtreleri genişletebilirsin.</span>
-          </div>
+          <EmptyState
+            title="Bu filtrelerde kayıt yok"
+            message="Yeni bir atık kaydı ekleyebilir veya filtreleri genişletebilirsin."
+          />
         ) : null}
 
         {!loading && !error && entries.length > 0 ? (

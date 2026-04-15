@@ -8,6 +8,7 @@ import {
 } from "../../lib/formatting";
 import { apiRequest, ApiError } from "../../lib/http";
 import type { ApiKey, Plan, Subscription } from "../../types/api";
+import { EmptyState, ErrorState, LoadingState } from "../../ui/state-blocks";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("tr-TR", {
@@ -90,13 +91,10 @@ export function SettingsPage() {
           </p>
 
           {loading ? (
-            <div className="empty-state">
-              <strong>Abonelik bilgisi yükleniyor</strong>
-              <span>Aktif plan ve limitler getiriliyor.</span>
-            </div>
+            <LoadingState title="Abonelik bilgisi yükleniyor" message="Aktif plan ve limitler getiriliyor." />
           ) : null}
 
-          {!loading && error ? <p className="error-banner">{error}</p> : null}
+          {!loading && error ? <ErrorState title="Abonelik verisi alınamadı" message={error} /> : null}
 
           {!loading && !error && subscription ? (
             <>
@@ -191,10 +189,7 @@ export function SettingsPage() {
         </div>
 
         {loading ? (
-          <div className="empty-state">
-            <strong>Planlar yükleniyor</strong>
-            <span>Liste birazdan görünecek.</span>
-          </div>
+          <LoadingState title="Planlar yükleniyor" message="Liste birazdan görünecek." />
         ) : null}
 
         {!loading && !error && plans.length > 0 ? (
@@ -243,10 +238,10 @@ export function SettingsPage() {
           {apiKeyMessage ? <p className="error-banner">{apiKeyMessage}</p> : null}
 
           {!apiKeyMessage && apiKeys.length === 0 ? (
-            <div className="empty-state">
-              <strong>Görünür API anahtarı yok</strong>
-              <span>Plan destekliyorsa backend tarafından yeni anahtar oluşturulabilir.</span>
-            </div>
+            <EmptyState
+              title="Görünür API anahtarı yok"
+              message="Plan destekliyorsa backend tarafından yeni anahtar oluşturulabilir."
+            />
           ) : null}
 
           {!apiKeyMessage && apiKeys.length > 0 ? (

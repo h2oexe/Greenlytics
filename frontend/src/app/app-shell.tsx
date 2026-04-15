@@ -184,7 +184,6 @@ function NavLabel({ item }: { item: NavigationItem }) {
 export function AppShell() {
   const { session, signOut } = useAuth();
   const [activePage, setActivePage] = useState<NavigationKey>("dashboard");
-  const activeItem = navigationItems.find((item) => item.key === activePage) ?? navigationItems[0];
 
   return (
     <div className="app-shell">
@@ -260,11 +259,6 @@ export function AppShell() {
         </header>
 
         <section className="workspace-content">
-          <div className="workspace-header-block">
-            <p className="workspace-subtitle" lang="en">
-              Organization / {activeItem.label}
-            </p>
-          </div>
           {renderPage(activePage)}
         </section>
       </main>

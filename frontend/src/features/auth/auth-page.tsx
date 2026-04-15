@@ -45,29 +45,6 @@ export function AuthPage() {
               </p>
             </div>
           </div>
-
-          <div className="auth-story-grid">
-            <article className="auth-footnote-card">
-              <strong>Tek panel</strong>
-              <span>Operasyonel veriler, hedefler ve dışa aktarımlar aynı ürün dilinde birleşir.</span>
-            </article>
-            <article className="auth-footnote-card">
-              <strong>Çok kiracılı yapı</strong>
-              <span>Her şirket kendi verisini izole görür; ekip ve plan yönetimi buna göre akar.</span>
-            </article>
-            <article className="auth-footnote-card">
-              <strong>Yönetici içgörüleri</strong>
-              <span>Trendler, açık hedefler ve riskli alanlar ilk bakışta görülebilir olur.</span>
-            </article>
-          </div>
-
-          <div className="auth-story-foot">
-            <span className="auth-story-quote-mark">01</span>
-            <p>
-              “Sürdürülebilirlik operasyonunu gösterge paneli gibi değil, yaşayan bir karar sistemi
-              gibi hissettiren arayüz.”
-            </p>
-          </div>
         </aside>
 
         <section className="auth-panel">

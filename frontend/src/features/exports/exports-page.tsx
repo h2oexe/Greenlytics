@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { formatDateTimeLabel } from "../../lib/formatting";
 import { apiRequest, ApiError } from "../../lib/http";
 import type { DownloadUrlResponse, ExportHistoryItem, ExportResult, ExportType } from "../../types/api";
+import { useFeedback } from "../../ui/feedback-context";
+import { EmptyState, ErrorState, LoadingState } from "../../ui/state-blocks";
 
 interface ExportFormState {
   type: "pdf" | "excel" | "csv";
@@ -63,13 +65,13 @@ function createInitialFormState(): ExportFormState {
 }
 
 export function ExportsPage() {
+  const { showToast } = useFeedback();
   const [history, setHistory] = useState<ExportHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [latestResult, setLatestResult] = useState<ExportResult | null>(null);
   const [downloadLinks, setDownloadLinks] = useState<Record<string, string>>({});
   const [form, setForm] = useState<ExportFormState>(() => createInitialFormState());
@@ -120,7 +122,6 @@ export function ExportsPage() {
     event.preventDefault();
     setSubmitting(true);
     setSubmitError(null);
-    setSubmitSuccess(null);
 
     try {
       const body = {
@@ -139,8 +140,12 @@ export function ExportsPage() {
       });
 
       setLatestResult(response);
-      setSubmitSuccess(`${response.fileName} hazırlandı.`);
       await refreshHistory();
+      showToast({
+        title: "Export hazırlandı",
+        message: response.fileName,
+        tone: "success"
+      });
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : "Export oluşturulamadı.");
     } finally {
@@ -333,7 +338,6 @@ export function ExportsPage() {
             </div>
 
             {submitError ? <p className="error-banner">{submitError}</p> : null}
-            {submitSuccess ? <p className="success-banner">{submitSuccess}</p> : null}
 
             <button type="submit" className="primary-button" disabled={submitting}>
               {submitting ? "Hazırlanıyor..." : "Export oluştur"}
@@ -351,19 +355,16 @@ export function ExportsPage() {
         </div>
 
         {loading ? (
-          <div className="empty-state">
-            <strong>Export geçmişi yükleniyor</strong>
-            <span>Daha önce oluşturulan dosyalar listeleniyor.</span>
-          </div>
+          <LoadingState title="Export geçmişi yükleniyor" message="Daha önce oluşturulan dosyalar listeleniyor." />
         ) : null}
 
-        {!loading && error ? <p className="error-banner">{error}</p> : null}
+        {!loading && error ? <ErrorState title="Export geçmişi alınamadı" message={error} /> : null}
 
         {!loading && !error && history.length === 0 ? (
-          <div className="empty-state">
-            <strong>Export geçmişi boş</strong>
-            <span>İlk raporu oluşturduğunda burada indirilebilir dosya geçmişi göreceksin.</span>
-          </div>
+          <EmptyState
+            title="Export geçmişi boş"
+            message="İlk raporu oluşturduğunda burada indirilebilir dosya geçmişi göreceksin."
+          />
         ) : null}
 
         {!loading && !error && history.length > 0 ? (

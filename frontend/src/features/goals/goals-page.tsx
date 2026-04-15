@@ -8,6 +8,8 @@ import {
 } from "../../lib/formatting";
 import { ApiError, apiRequest } from "../../lib/http";
 import type { Goal, GoalPeriod, GoalProgress, GoalType } from "../../types/api";
+import { useFeedback } from "../../ui/feedback-context";
+import { EmptyState, ErrorState, LoadingState } from "../../ui/state-blocks";
 
 interface GoalFormState {
   type: GoalType;
@@ -66,13 +68,13 @@ function createInitialFormState(): GoalFormState {
 
 export function GoalsPage() {
   const { session } = useAuth();
+  const { showToast } = useFeedback();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [progressItems, setProgressItems] = useState<GoalProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [form, setForm] = useState<GoalFormState>(() => createInitialFormState());
 
   const canManage =
@@ -160,7 +162,6 @@ export function GoalsPage() {
 
     setSaving(true);
     setSubmitError(null);
-    setSubmitSuccess(null);
 
     try {
       await apiRequest<Goal>("/api/goals", {
@@ -178,8 +179,12 @@ export function GoalsPage() {
       });
 
       setForm(createInitialFormState());
-      setSubmitSuccess("Yeni hedef oluşturuldu.");
       await refreshGoals();
+      showToast({
+        title: "Yeni hedef oluşturuldu",
+        message: "Aktif hedef listesi güncellendi.",
+        tone: "success"
+      });
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : "Hedef oluşturulamadı.");
     } finally {
@@ -494,7 +499,6 @@ export function GoalsPage() {
             </div>
 
             {submitError ? <p className="error-banner">{submitError}</p> : null}
-            {submitSuccess ? <p className="success-banner">{submitSuccess}</p> : null}
 
             <button type="submit" className="primary-button" disabled={!canManage || saving}>
               {saving ? "Kaydediliyor..." : "Hedef ekle"}
@@ -509,19 +513,16 @@ export function GoalsPage() {
           <h2>Hedef listesi ve ilerleme</h2>
 
           {loading ? (
-            <div className="empty-state">
-              <strong>Hedefler yükleniyor</strong>
-              <span>Liste ve canlı ilerleme backend'den getiriliyor.</span>
-            </div>
+            <LoadingState title="Hedefler yükleniyor" message="Liste ve canlı ilerleme backend'den getiriliyor." />
           ) : null}
 
-          {!loading && error ? <p className="error-banner">{error}</p> : null}
+          {!loading && error ? <ErrorState title="Hedefler alınamadı" message={error} /> : null}
 
           {!loading && !error && goals.length === 0 ? (
-            <div className="empty-state">
-              <strong>Henüz hedef yok</strong>
-              <span>Soldaki formdan ilk sürdürülebilirlik hedefini oluşturabilirsin.</span>
-            </div>
+            <EmptyState
+              title="Henüz hedef yok"
+              message="Soldaki formdan ilk sürdürülebilirlik hedefini oluşturabilirsin."
+            />
           ) : null}
 
           {!loading && !error && goals.length > 0 ? (

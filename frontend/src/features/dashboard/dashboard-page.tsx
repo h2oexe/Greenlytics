@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { formatGoalStatusLabel, formatNumberLabel, formatPeriodLabel } from "../../lib/formatting";
 import { ApiError, apiRequest } from "../../lib/http";
 import type { DashboardResponse } from "../../types/api";
+import { DashboardSkeleton, ErrorState, EmptyState } from "../../ui/state-blocks";
 
 interface StatTileProps {
   label: string;
@@ -27,6 +28,76 @@ function StatTile({ label, value, helper, progress }: StatTileProps) {
 
 function getTrendCarbonValue(value: DashboardResponse["monthlyTrends"][number]) {
   return value.cO2eKg ?? 0;
+}
+
+function getMaxValue(values: number[]) {
+  return Math.max(...values, 1);
+}
+
+function TrendBars({ trends }: { trends: DashboardResponse["monthlyTrends"] }) {
+  const maxCarbon = getMaxValue(trends.map((trend) => getTrendCarbonValue(trend)));
+
+  if (trends.length === 0) {
+    return (
+      <EmptyState
+        title="Trend verisi yok"
+        message="Karbon trend grafiği için henüz yeterli dönem verisi görünmüyor."
+      />
+    );
+  }
+
+  return (
+    <div className="trend-bars" aria-label="Son dönem karbon trendi">
+      {trends.map((trend) => {
+        const carbonValue = getTrendCarbonValue(trend);
+        const height = Math.max((carbonValue / maxCarbon) * 100, carbonValue > 0 ? 8 : 4);
+
+        return (
+          <div key={trend.period} className="trend-bar-item">
+            <div className="trend-bar-track">
+              <span className="trend-bar-fill" style={{ height: `${height}%` }} />
+            </div>
+            <span>{formatPeriodLabel(trend.period)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function BreakdownBars({
+  items,
+  emptyTitle,
+  emptyMessage
+}: {
+  items: DashboardResponse["energyByCategory"];
+  emptyTitle: string;
+  emptyMessage: string;
+}) {
+  if (items.length === 0) {
+    return <EmptyState title={emptyTitle} message={emptyMessage} />;
+  }
+
+  return (
+    <div className="breakdown-list">
+      {items.map((item) => (
+        <div key={item.category} className="breakdown-row">
+          <div className="breakdown-row-top">
+            <span>{item.category}</span>
+            <strong>
+              {formatNumberLabel(item.value)} {item.unit}
+            </strong>
+          </div>
+          <div className="breakdown-track">
+            <span
+              className="breakdown-fill"
+              style={{ width: `${Math.max(0, Math.min(item.percentageOfTotal, 100))}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function DashboardPage() {
@@ -76,23 +147,16 @@ export function DashboardPage() {
   }, [dashboard]);
 
   if (loading) {
-    return (
-      <section className="card centered">
-        <h2>Gösterge paneli yükleniyor</h2>
-        <p className="muted">`/api/reports/dashboard` verisi hazırlanıyor.</p>
-      </section>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (error || !dashboard) {
     return (
       <section className="card">
-        <h2>Veri alınırken hata oldu</h2>
-        <p className="error-banner">{error ?? "Gösterge paneli verisi bulunamadı."}</p>
-        <p className="muted">
-          Bu durum genelde backend tarafında veri ya da yetki kaynaklı olur. Oturumu yenileyip tekrar
-          deneyebilirsin.
-        </p>
+        <ErrorState
+          title="Gösterge paneli verisi alınamadı"
+          message={error ?? "Dashboard verisi şu an hazırlanamadı. Oturumu yenileyip tekrar deneyebilirsin."}
+        />
       </section>
     );
   }
@@ -198,14 +262,7 @@ export function DashboardPage() {
           <article className="insight-card">
             <p className="eyebrow">Trendler</p>
             <h3>Son dönem karbon etkisi</h3>
-            <div className="compact-list">
-              {dashboard.monthlyTrends.map((trend) => (
-                <div key={trend.period} className="compact-list-row">
-                  <span>{formatPeriodLabel(trend.period)}</span>
-                  <strong>{formatNumberLabel(getTrendCarbonValue(trend))} kgCO2e</strong>
-                </div>
-              ))}
-            </div>
+            <TrendBars trends={dashboard.monthlyTrends} />
           </article>
         </div>
       </section>
@@ -214,20 +271,21 @@ export function DashboardPage() {
         <article className="card">
           <p className="eyebrow">Kategori kırılımı</p>
           <h2>Enerji kategorileri</h2>
-          <div className="list-stack">
-            {dashboard.energyByCategory.length === 0 ? (
-              <p className="muted">Bu ay enerji kategorisi verisi yok.</p>
-            ) : (
-              dashboard.energyByCategory.map((item) => (
-                <div key={item.category} className="list-row">
-                  <span>{item.category}</span>
-                  <strong>
-                    {formatNumberLabel(item.value)} {item.unit}
-                  </strong>
-                </div>
-              ))
-            )}
-          </div>
+          <BreakdownBars
+            items={dashboard.energyByCategory}
+            emptyTitle="Enerji kategorisi verisi yok"
+            emptyMessage="Bu ay için kategori bazlı enerji kaydı görünmüyor."
+          />
+        </article>
+
+        <article className="card">
+          <p className="eyebrow">Emisyon kırılımı</p>
+          <h2>Karbon kaynakları</h2>
+          <BreakdownBars
+            items={dashboard.carbonBySource}
+            emptyTitle="Karbon kaynağı verisi yok"
+            emptyMessage="Karbon girdileri eklendiğinde kaynak dağılımı burada görünür."
+          />
         </article>
 
         <article className="card">
@@ -250,7 +308,10 @@ export function DashboardPage() {
               </div>
             </div>
           ) : (
-            <p className="muted">Henüz aktif hedef bulunmuyor.</p>
+            <EmptyState
+              title="Henüz aktif hedef yok"
+              message="İlk sürdürülebilirlik hedefini oluşturduğunda ilerleme burada görünecek."
+            />
           )}
 
           <div className="compact-list">

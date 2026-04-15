@@ -3,6 +3,8 @@ import { useAuth } from "../../auth/auth-context";
 import { formatDateLabel, formatNumberLabel, formatRoleLabel } from "../../lib/formatting";
 import { apiRequest, ApiError } from "../../lib/http";
 import type { PaginatedResponse, WaterCategory, WaterEntry } from "../../types/api";
+import { useFeedback } from "../../ui/feedback-context";
+import { EmptyState, ErrorState, LoadingState } from "../../ui/state-blocks";
 
 interface WaterFilterState {
   from: string;
@@ -46,6 +48,7 @@ function createInitialFormState(): WaterFormState {
 
 export function WaterPage() {
   const { session } = useAuth();
+  const { confirm, showToast } = useFeedback();
   const [entries, setEntries] = useState<WaterEntry[]>([]);
   const [filters, setFilters] = useState<WaterFilterState>({ from: "", to: "", category: "" });
   const [page, setPage] = useState(1);
@@ -55,7 +58,6 @@ export function WaterPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [form, setForm] = useState<WaterFormState>(() => createInitialFormState());
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
@@ -124,7 +126,6 @@ export function WaterPage() {
   function startEditing(entry: WaterEntry) {
     setEditingEntryId(entry.id);
     setSubmitError(null);
-    setSubmitSuccess(null);
     setForm({
       category: entry.category,
       categoryName: entry.categoryName ?? "",
@@ -148,7 +149,6 @@ export function WaterPage() {
 
     setSaving(true);
     setSubmitError(null);
-    setSubmitSuccess(null);
 
     try {
       await apiRequest<WaterEntry>(editingEntryId ? `/api/water/${editingEntryId}` : "/api/water", {
@@ -164,9 +164,13 @@ export function WaterPage() {
 
       const wasEditing = Boolean(editingEntryId);
       resetForm();
-      setSubmitSuccess(wasEditing ? "Su kaydı güncellendi." : "Yeni su kaydı oluşturuldu.");
       setPage(1);
       await refreshEntries(1);
+      showToast({
+        title: wasEditing ? "Su kaydı güncellendi" : "Su kaydı eklendi",
+        message: "Liste en güncel haliyle yenilendi.",
+        tone: "success"
+      });
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : "Kayıt oluşturulamadı.");
     } finally {
@@ -175,13 +179,24 @@ export function WaterPage() {
   }
 
   async function handleDelete(entry: WaterEntry) {
-    if (!canManage || !window.confirm("Bu su kaydını silmek istediğine emin misin?")) {
+    if (!canManage) {
+      return;
+    }
+
+    const approved = await confirm({
+      title: "Su kaydı silinsin mi?",
+      message: "Bu kayıt listeden kaldırılacak. İşlem tamamlandığında geri alma seçeneği yok.",
+      confirmLabel: "Kaydı sil",
+      cancelLabel: "Vazgeç",
+      tone: "danger"
+    });
+
+    if (!approved) {
       return;
     }
 
     setDeletingEntryId(entry.id);
     setSubmitError(null);
-    setSubmitSuccess(null);
 
     try {
       await apiRequest<void>(`/api/water/${entry.id}`, { method: "DELETE" });
@@ -190,8 +205,12 @@ export function WaterPage() {
         resetForm();
       }
 
-      setSubmitSuccess("Su kaydı silindi.");
       await refreshEntries(page);
+      showToast({
+        title: "Su kaydı silindi",
+        message: "Liste güncellendi.",
+        tone: "success"
+      });
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : "Kayıt silinemedi.");
     } finally {
@@ -327,7 +346,6 @@ export function WaterPage() {
             </label>
 
             {submitError ? <p className="error-banner">{submitError}</p> : null}
-            {submitSuccess ? <p className="success-banner">{submitSuccess}</p> : null}
 
             <div className="form-actions">
               <button type="submit" className="primary-button" disabled={!canManage || saving}>
@@ -399,19 +417,16 @@ export function WaterPage() {
         </div>
 
         {loading ? (
-          <div className="empty-state">
-            <strong>Su kayıtları yükleniyor</strong>
-            <span>Filtrelere göre backend verisi getiriliyor.</span>
-          </div>
+          <LoadingState title="Su kayıtları yükleniyor" message="Filtrelere göre backend verisi getiriliyor." />
         ) : null}
 
-        {!loading && error ? <p className="error-banner">{error}</p> : null}
+        {!loading && error ? <ErrorState title="Su kayıtları alınamadı" message={error} /> : null}
 
         {!loading && !error && entries.length === 0 ? (
-          <div className="empty-state">
-            <strong>Bu filtrelerde kayıt yok</strong>
-            <span>Yeni bir su kaydı ekleyebilir veya filtreleri genişletebilirsin.</span>
-          </div>
+          <EmptyState
+            title="Bu filtrelerde kayıt yok"
+            message="Yeni bir su kaydı ekleyebilir veya filtreleri genişletebilirsin."
+          />
         ) : null}
 
         {!loading && !error && entries.length > 0 ? (

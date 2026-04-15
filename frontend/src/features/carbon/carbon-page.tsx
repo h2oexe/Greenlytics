@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../auth/auth-context";
 import { formatDateLabel, formatNumberLabel, formatRoleLabel } from "../../lib/formatting";
 import { apiRequest, ApiError } from "../../lib/http";
+import { useFeedback } from "../../ui/feedback-context";
+import { EmptyState, ErrorState, LoadingState } from "../../ui/state-blocks";
 import type {
   CarbonFootprintResponse,
   CarbonInput,
@@ -90,6 +92,7 @@ function createInitialFormState(): CarbonFormState {
 
 export function CarbonPage() {
   const { session } = useAuth();
+  const { confirm, showToast } = useFeedback();
   const [entries, setEntries] = useState<CarbonInput[]>([]);
   const [footprint, setFootprint] = useState<CarbonFootprintResponse | null>(null);
   const [filters, setFilters] = useState<CarbonFilterState>({ from: "", to: "", source: "" });
@@ -100,7 +103,6 @@ export function CarbonPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [form, setForm] = useState<CarbonFormState>(() => createInitialFormState());
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
@@ -181,7 +183,6 @@ export function CarbonPage() {
   function startEditing(entry: CarbonInput) {
     setEditingEntryId(entry.id);
     setSubmitError(null);
-    setSubmitSuccess(null);
     setForm({
       source: entry.source,
       transportType: entry.transportType !== null ? entry.transportType.toString() : "",
@@ -207,7 +208,6 @@ export function CarbonPage() {
 
     setSaving(true);
     setSubmitError(null);
-    setSubmitSuccess(null);
 
     try {
       await apiRequest<CarbonInput>(editingEntryId ? `/api/carbon/${editingEntryId}` : "/api/carbon", {
@@ -225,9 +225,13 @@ export function CarbonPage() {
 
       const wasEditing = Boolean(editingEntryId);
       resetForm();
-      setSubmitSuccess(wasEditing ? "Karbon girdisi güncellendi." : "Yeni karbon girdisi oluşturuldu.");
       setPage(1);
       await refreshData(1);
+      showToast({
+        title: wasEditing ? "Karbon girdisi güncellendi" : "Karbon girdisi eklendi",
+        message: "Liste ve footprint özeti yenilendi.",
+        tone: "success"
+      });
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : "Kayıt oluşturulamadı.");
     } finally {
@@ -245,13 +249,24 @@ export function CarbonPage() {
   }
 
   async function handleDelete(entry: CarbonInput) {
-    if (!canManage || !window.confirm("Bu karbon girdisini silmek istediğine emin misin?")) {
+    if (!canManage) {
+      return;
+    }
+
+    const approved = await confirm({
+      title: "Karbon girdisi silinsin mi?",
+      message: "Bu kayıt listeden kaldırılacak. İşlem tamamlandığında geri alma seçeneği yok.",
+      confirmLabel: "Kaydı sil",
+      cancelLabel: "Vazgeç",
+      tone: "danger"
+    });
+
+    if (!approved) {
       return;
     }
 
     setDeletingEntryId(entry.id);
     setSubmitError(null);
-    setSubmitSuccess(null);
 
     try {
       await apiRequest<void>(`/api/carbon/${entry.id}`, { method: "DELETE" });
@@ -260,8 +275,12 @@ export function CarbonPage() {
         resetForm();
       }
 
-      setSubmitSuccess("Karbon girdisi silindi.");
       await refreshData(page);
+      showToast({
+        title: "Karbon girdisi silindi",
+        message: "Liste ve footprint özeti yenilendi.",
+        tone: "success"
+      });
     } catch (err) {
       setSubmitError(err instanceof ApiError ? err.message : "Kayıt silinemedi.");
     } finally {
@@ -447,7 +466,6 @@ export function CarbonPage() {
             </label>
 
             {submitError ? <p className="error-banner">{submitError}</p> : null}
-            {submitSuccess ? <p className="success-banner">{submitSuccess}</p> : null}
 
             <div className="form-actions">
               <button type="submit" className="primary-button" disabled={!canManage || saving}>
@@ -519,19 +537,19 @@ export function CarbonPage() {
         </div>
 
         {loading ? (
-          <div className="empty-state">
-            <strong>Karbon kayıtları yükleniyor</strong>
-            <span>Liste ve footprint özeti backend'den getiriliyor.</span>
-          </div>
+          <LoadingState
+            title="Karbon kayıtları yükleniyor"
+            message="Liste ve footprint özeti backend'den getiriliyor."
+          />
         ) : null}
 
-        {!loading && error ? <p className="error-banner">{error}</p> : null}
+        {!loading && error ? <ErrorState title="Karbon kayıtları alınamadı" message={error} /> : null}
 
         {!loading && !error && entries.length === 0 ? (
-          <div className="empty-state">
-            <strong>Bu filtrelerde kayıt yok</strong>
-            <span>Yeni bir karbon girdisi ekleyebilir veya filtreleri genişletebilirsin.</span>
-          </div>
+          <EmptyState
+            title="Bu filtrelerde kayıt yok"
+            message="Yeni bir karbon girdisi ekleyebilir veya filtreleri genişletebilirsin."
+          />
         ) : null}
 
         {!loading && !error && entries.length > 0 ? (
