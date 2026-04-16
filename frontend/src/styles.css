@@ -1023,22 +1023,24 @@ h3 {
   min-height: 360px;
   border-radius: 34px;
   background:
+    linear-gradient(180deg, rgba(18, 34, 27, 0.24), rgba(18, 34, 27, 0.62)),
     radial-gradient(circle at top, rgba(255, 255, 255, 0.04), transparent 30%),
+    url("/dashboard-spotlight.png"),
     linear-gradient(180deg, rgba(31, 60, 46, 0.96), rgba(19, 49, 36, 0.98));
+  background-position: center, center, center, center;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+  background-size: cover, cover, cover, cover;
   box-shadow: 0 30px 50px rgba(20, 39, 31, 0.18);
 }
 
 .spotlight-card::before {
   content: "";
   position: absolute;
-  inset: auto 8% 14% auto;
-  width: 54%;
-  height: 78%;
-  opacity: 0.18;
+  inset: 0;
+  opacity: 1;
   background:
-    linear-gradient(180deg, rgba(215, 235, 222, 0.14), rgba(215, 235, 222, 0)),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent);
-  clip-path: polygon(52% 0%, 78% 24%, 66% 24%, 100% 58%, 72% 58%, 87% 100%, 14% 100%, 26% 58%, 0% 58%, 34% 24%, 22% 24%);
+    linear-gradient(180deg, rgba(17, 46, 31, 0.5), rgba(9, 26, 18, 0.82)),
+    linear-gradient(90deg, rgba(10, 29, 20, 0.68), rgba(18, 43, 31, 0.26) 42%, rgba(8, 20, 14, 0.72));
 }
 
 .spotlight-card-inner {
