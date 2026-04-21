@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../auth/auth-context";
 import {
   formatDateLabel,
+  formatGoalHealthLabel,
   formatGoalStatusLabel,
   formatNumberLabel,
+  getGoalHealthPercent,
   formatRoleLabel
 } from "../../lib/formatting";
 import { ApiError, apiRequest } from "../../lib/http";
@@ -137,10 +139,7 @@ export function GoalsPage() {
       return 0;
     }
 
-    return Math.round(
-      progressItems.reduce((sum, item) => sum + Math.max(0, Math.min(item.progressPercent, 100)), 0) /
-        progressItems.length
-    );
+    return Math.round(progressItems.reduce((sum, item) => sum + getGoalHealthPercent(item), 0) / progressItems.length);
   }, [progressItems]);
 
   async function refreshGoals() {
@@ -235,7 +234,7 @@ export function GoalsPage() {
         <article className="stat-tile">
           <span className="stat-label">Tamamlanma oranı</span>
           <strong className="stat-value">%{completionRate}</strong>
-          <span className="stat-helper">Ortalama ilerleme</span>
+          <span className="stat-helper">Ortalama hedef uyumu</span>
           <div className="progress-track progress-track--compact">
             <div className="progress-fill" style={{ width: `${completionRate}%` }} />
           </div>
@@ -269,14 +268,14 @@ export function GoalsPage() {
 
                 <div className="spotlight-progress">
                   <div className="spotlight-progress-row">
-                    <span>İlerleme</span>
-                    <strong>%{formatNumberLabel(featuredProgress?.progressPercent ?? 0, 0)}</strong>
+                    <span>Hedef uyumu</span>
+                    <strong>%{formatNumberLabel(getGoalHealthPercent(featuredProgress), 0)}</strong>
                   </div>
                   <div className="progress-track">
                     <div
                       className="progress-fill"
                       style={{
-                        width: `${Math.min(Math.max(featuredProgress?.progressPercent ?? 0, 0), 100)}%`
+                        width: `${getGoalHealthPercent(featuredProgress)}%`
                       }}
                     />
                   </div>
@@ -285,6 +284,7 @@ export function GoalsPage() {
                 <div className="spotlight-meta">
                   <span>Başlangıç: {formatDateLabel(featuredGoal.startDate)}</span>
                   <span>Bitiş: {formatDateLabel(featuredGoal.endDate)}</span>
+                  <span>{formatGoalHealthLabel(featuredProgress)}</span>
                 </div>
               </>
             ) : (
@@ -328,15 +328,16 @@ export function GoalsPage() {
                 <h3>{goal.name}</h3>
                 <p className="muted">{goal.description?.trim() || "Açıklama eklenmedi."}</p>
                 <div className="spotlight-progress-row">
-                  <span>İlerleme</span>
-                  <strong>%{formatNumberLabel(progress?.progressPercent ?? 0, 0)}</strong>
+                  <span>Hedef uyumu</span>
+                  <strong>%{formatNumberLabel(getGoalHealthPercent(progress), 0)}</strong>
                 </div>
                 <div className="progress-track progress-track--compact">
                   <div
                     className="progress-fill"
-                    style={{ width: `${Math.min(Math.max(progress?.progressPercent ?? 0, 0), 100)}%` }}
+                    style={{ width: `${getGoalHealthPercent(progress)}%` }}
                   />
                 </div>
+                <p className="muted">{formatGoalHealthLabel(progress)}</p>
               </article>
             );
           })}
@@ -543,7 +544,7 @@ export function GoalsPage() {
                       <div className="entry-side">
                         <span className="entry-pill">{formatGoalStatusLabel(goal.status)}</span>
                         <span className="entry-value">
-                          %{formatNumberLabel(progress?.progressPercent ?? 0, 0)}
+                          %{formatNumberLabel(getGoalHealthPercent(progress), 0)}
                         </span>
                       </div>
                     </div>
@@ -555,6 +556,7 @@ export function GoalsPage() {
                       <span>
                         Mevcut: {formatNumberLabel(progress?.currentValue ?? 0)} {goal.unit}
                       </span>
+                      <span>{formatGoalHealthLabel(progress)}</span>
                       <span>
                         {formatDateLabel(goal.startDate)} - {formatDateLabel(goal.endDate)}
                       </span>
@@ -568,7 +570,7 @@ export function GoalsPage() {
                       <div
                         className="progress-fill"
                         style={{
-                          width: `${Math.min(Math.max(progress?.progressPercent ?? 0, 0), 100)}%`
+                          width: `${getGoalHealthPercent(progress)}%`
                         }}
                       />
                     </div>

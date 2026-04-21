@@ -1,4 +1,4 @@
-import type { GoalStatus, PlanName, SubscriptionStatus, UserRole } from "../types/api";
+import type { GoalProgress, GoalStatus, PlanName, SubscriptionStatus, UserRole } from "../types/api";
 
 export function formatNumberLabel(value: number, maximumFractionDigits = 1) {
   return new Intl.NumberFormat("tr-TR", { maximumFractionDigits }).format(value);
@@ -102,4 +102,39 @@ export function formatGoalStatusLabel(status: GoalStatus | string) {
     default:
       return typeof status === "string" ? status : "Bilinmiyor";
   }
+}
+
+export function getGoalHealthPercent(
+  goal: Pick<GoalProgress, "targetValue" | "currentValue"> | null | undefined
+) {
+  if (!goal || goal.targetValue <= 0) {
+    return 0;
+  }
+
+  if (goal.currentValue <= goal.targetValue) {
+    return 100;
+  }
+
+  return Math.max(0, Math.min((goal.targetValue / goal.currentValue) * 100, 100));
+}
+
+export function formatGoalHealthLabel(
+  goal: Pick<GoalProgress, "targetValue" | "currentValue" | "unit"> | null | undefined
+) {
+  if (!goal || goal.targetValue <= 0) {
+    return "Veri bekleniyor";
+  }
+
+  if (goal.currentValue <= goal.targetValue) {
+    const remaining = goal.targetValue - goal.currentValue;
+
+    if (remaining === 0) {
+      return "Hedef sınırında";
+    }
+
+    return `Hedef içinde · ${formatNumberLabel(remaining)} ${goal.unit} pay var`;
+  }
+
+  const exceededPercent = ((goal.currentValue - goal.targetValue) / goal.targetValue) * 100;
+  return `Hedefin %${formatNumberLabel(exceededPercent, 0)} üstünde`;
 }

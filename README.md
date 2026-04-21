@@ -1,81 +1,154 @@
-# 🌱 Greenlytics - Sustainability Management SaaS
+# Greenlytics
 
-Greenlytics is an enterprise-grade, multi-tenant Sustainability Management SaaS platform. It allows companies to track, manage, and report their environmental impact, including Energy, Water, Waste, and Carbon emissions.
+Greenlytics, şirketlerin sürdürülebilirlik verilerini tek panelde yönetebilmesi için geliştirilen çok kiracılı bir SaaS uygulamasıdır. Uygulama; enerji, su, atık ve karbon verilerini toplar, dashboard üzerinden özetler, hedef takibi yapar ve dışa aktarım akışlarını destekler.
 
-The project is structured as a monorepo containing both the Frontend and the Backend applications.
+Bu repo şu anda iki ana parçadan oluşur:
 
-## 📁 Repository Structure
+- `src/`: .NET 8 tabanlı backend
+- `frontend/`: React + Vite tabanlı frontend
 
-```
+## Proje Yapısı
+
+```text
 Greenlytics/
-├── frontend/               # (To be added) Frontend application
-├── src/                    # Backend Source Code (.NET 8 Clean Architecture)
-│   ├── Greenlytics.API
-│   ├── Greenlytics.Application
-│   ├── Greenlytics.Domain
-│   └── Greenlytics.Infrastructure
-├── docker-compose.yml      # Local development infrastructure (PostgreSQL, Redis, MinIO, MailHog)
-└── FRONTEND_ENTEGRASYON_REHBERI.md  # Detailed API integration guide for the frontend team
+├── frontend/                      # React + Vite frontend
+├── src/
+│   ├── Greenlytics.API            # Web API
+│   ├── Greenlytics.Application    # Uygulama katmanı
+│   ├── Greenlytics.Domain         # Domain modelleri
+│   └── Greenlytics.Infrastructure # Veri erişimi, dış servisler, background jobs
+├── tests/                         # Test projesi
+├── docker-compose.yml             # PostgreSQL, Redis, MinIO, MailHog ve API
+└── FRONTEND_ENTEGRASYON_REHBERI.md
 ```
 
----
+## Hızlı Başlangıç
 
-## ⚙️ Backend Setup & Execution
+### 1. Backend ve altyapıyı ayağa kaldır
 
-The backend is built with **.NET 8** following Clean Architecture principles. It uses PostgreSQL, Redis, Hangfire, and MinIO for robust and scalable operations.
+Proje kökünde:
 
-### 1. Start Infrastructure Services
-You need Docker installed. Run the following command in the root folder to start all required external services (Database, Redis, S3 Storage, SMTP):
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-### 2. Apply Database Migrations
-Before running the backend, ensure the database schema is created:
-```bash
-dotnet ef database update --project src/Greenlytics.Infrastructure --startup-project src/Greenlytics.API
-```
+Bu komut şunları ayağa kaldırır:
 
-### 3. Run the API
-```bash
-cd src/Greenlytics.API
-dotnet run
-```
-The application will start on `http://localhost:5000`. 
-👉 **Swagger UI:** [http://localhost:5000/swagger](http://localhost:5000/swagger)
+- `postgres`
+- `redis`
+- `minio`
+- `mailhog`
+- `api`
 
-*(For detailed frontend integration, authentication flows, and endpoint usage, please refer to the `FRONTEND_ENTEGRASYON_REHBERI.md` file.)*
+Not: Uygulama başlangıcında gerekli tablolar ve temel plan seed verileri backend tarafından oluşturulur. Lokal geliştirmede ayrıca migration komutu çalıştırman çoğu durumda gerekmez.
 
----
+### 2. Frontend bağımlılıklarını kur
 
-## 🎨 Frontend Setup & Execution
-
-The frontend starter now lives in the `frontend/` directory.
-
-### 1. Install dependencies
 ```bash
 cd frontend
 npm install
 ```
 
-### 2. Configure API base URL
-Create a `frontend/.env` file with:
+### 3. Frontend ortam değişkenini ayarla
+
+`frontend/.env` dosyasını oluştur:
+
 ```bash
 VITE_API_BASE_URL=http://localhost:5000
 ```
 
-### 3. Run the frontend
+### 4. Frontend geliştirme sunucusunu başlat
+
 ```bash
 npm run dev
 ```
 
-The Vite dev server starts on `http://localhost:5173`.
+## Lokal Erişim Adresleri
 
----
+- Frontend: `http://localhost:5173`
+- API: `http://localhost:5000`
+- Swagger: `http://localhost:5000/swagger`
+- Health: `http://localhost:5000/health`
+- MailHog: `http://localhost:8025`
+- MinIO Console: `http://localhost:9001`
+- Hangfire: `http://localhost:5000/hangfire`
 
-## ✨ Key Backend Features
-* **Multi-Tenant Architecture:** Securely isolates data per company using EF Core Global Query Filters.
-* **Complex Reporting Engine:** Aggregates and calculates metrics (Trend calculations, CO2e estimation using emission factors).
-* **Automated Exports:** Generates PDF and Excel reports in background jobs (Hangfire) and uploads to MinIO, providing pre-signed URLs.
-* **SaaS Billing Ready:** Integrated with Stripe for Subscription limit enforcement and feature gating. 
-* **API Documentation:** Fully documented via Swagger and OpenAPI standards.
+## Uygulamada Şu Anda Olanlar
+
+Frontend tarafında şu modüller çalışır durumda:
+
+- Auth: giriş ve kayıt ol
+- Dashboard: KPI kartları, trendler, kırılımlar, akıllı içgörüler
+- Energy
+- Water
+- Waste
+- Carbon
+- Goals
+- Reports / Exports
+- Settings
+- Global search
+- Toast, confirm modal, loading, empty ve error state akışları
+
+Backend tarafında öne çıkan özellikler:
+
+- JWT tabanlı kimlik doğrulama
+- Çok kiracılı veri izolasyonu
+- Dashboard ve raporlama endpoint’leri
+- Plan bazlı yetki ve limit mantığı
+- Export geçmişi ve dosya link akışları
+- Audit log middleware
+
+## Sık Kullanılan Komutlar
+
+### Tüm servisleri başlat
+
+```bash
+docker compose up -d
+```
+
+### Servisleri durdur
+
+```bash
+docker compose down
+```
+
+### Frontend geliştirme sunucusu
+
+```bash
+cd frontend
+npm run dev
+```
+
+### Frontend production build
+
+```bash
+cd frontend
+npm run build
+```
+
+### Backend solution build
+
+```bash
+dotnet build Greenlytics.sln
+```
+
+### Testleri çalıştır
+
+```bash
+dotnet test tests/Greenlytics.Tests/Greenlytics.Tests.csproj
+```
+
+## Görsel Dosyalar
+
+`frontend/public/` altında UI tarafından beklenen iki görsel vardır:
+
+- `login-forest.jpg`
+- `dashboard-spotlight.png`
+
+Detaylar için:
+[README.md](/c:/Users/stajyer_it1/Desktop/Greenlytics/frontend/public/README.md)
+
+## Frontend Entegrasyon Rehberi
+
+Frontend modülleri, endpoint yapısı ve auth akışı için:
+[FRONTEND_ENTEGRASYON_REHBERI.md](/c:/Users/stajyer_it1/Desktop/Greenlytics/FRONTEND_ENTEGRASYON_REHBERI.md)
