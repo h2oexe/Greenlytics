@@ -174,7 +174,19 @@ public record ExportRequest(
     bool IncludeEnergy = true,
     bool IncludeWater = true,
     bool IncludeWaste = true,
-    bool IncludeCarbon = true);
+    bool IncludeCarbon = true,
+    string? ReportTitle = null,
+    string? CompanyDisplayName = null,
+    string? PreparedBy = null,
+    DateTime? ReportDate = null,
+    string? CoverTagline = null,
+    string? ExecutiveSummary = null,
+    string? SocialHighlights = null,
+    string? GovernanceHighlights = null,
+    string? FutureTargets = null,
+    string? Conclusion = null,
+    string? LogoDataUrl = null,
+    List<string>? ReportingFrameworks = null);
 
 public record ExportResultDto(
     Guid FileId,

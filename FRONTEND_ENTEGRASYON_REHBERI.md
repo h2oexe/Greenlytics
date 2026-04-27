@@ -22,12 +22,20 @@ npm install
 npm run dev
 ```
 
+Not:
+Vite artık `0.0.0.0` üzerinden dinler. Aynı yerel ağdaki başka cihazlar frontend'e host makinenin IP adresiyle bağlanabilir.
+
 ### Gerekli adresler
 
 - Frontend: `http://localhost:5173`
 - API: `http://localhost:5000`
 - Swagger: `http://localhost:5000/swagger`
 - Health: `http://localhost:5000/health`
+
+Yerel ağ örneği:
+
+- Frontend: `http://<host-ip>:5173`
+- API: `http://<host-ip>:5000`
 
 ## Ortam Değişkeni
 

@@ -1677,12 +1677,54 @@ h3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.report-framework-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
 .selection-card,
 .check-card {
   display: grid;
   gap: 6px;
   padding: 16px;
   cursor: pointer;
+}
+
+.report-framework-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid rgba(18, 38, 29, 0.08);
+  border-radius: 22px;
+  background: rgba(248, 250, 247, 0.86);
+  box-shadow: var(--shadow-panel);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.report-framework-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(32, 75, 56, 0.18);
+}
+
+.report-framework-card strong {
+  color: var(--text-strong);
+}
+
+.report-framework-card span {
+  color: var(--text-base);
+  line-height: 1.5;
+}
+
+.report-framework-card.active {
+  border-color: rgba(32, 75, 56, 0.18);
+  background: linear-gradient(180deg, rgba(228, 239, 232, 0.96), rgba(217, 233, 223, 0.88));
 }
 
 .selection-card input,
@@ -1693,6 +1735,53 @@ h3 {
 .selection-card.active {
   border-color: rgba(32, 75, 56, 0.16);
   background: rgba(220, 233, 225, 0.72);
+}
+
+.report-section-block {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid rgba(18, 38, 29, 0.06);
+  border-radius: 24px;
+  background: rgba(248, 250, 247, 0.8);
+}
+
+.textarea-tall {
+  min-height: 132px;
+}
+
+.file-upload-shell {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px dashed rgba(32, 75, 56, 0.2);
+  border-radius: 20px;
+  background: rgba(244, 247, 242, 0.78);
+}
+
+.file-upload-shell input[type="file"] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.file-upload-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.report-preview-card {
+  margin-top: 18px;
+}
+
+.report-preview-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .entry-list {
@@ -1902,7 +1991,8 @@ h3 {
   .page-hero--split,
   .field-grid,
   .entry-list,
-  .selection-grid {
+  .selection-grid,
+  .report-framework-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2103,7 +2193,8 @@ h3 {
 
   .field-grid,
   .selection-grid,
-  .checkbox-grid {
+  .checkbox-grid,
+  .report-framework-grid {
     grid-template-columns: 1fr;
   }
 

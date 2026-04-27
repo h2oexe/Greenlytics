@@ -207,8 +207,10 @@ if (app.Environment.IsDevelopment())
         c.DisplayRequestDuration();
     });
 }
-
-app.UseHttpsRedirection();
+else
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<AuditLogMiddleware>();
